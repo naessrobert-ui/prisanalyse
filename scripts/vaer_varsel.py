@@ -33,7 +33,7 @@ from typing import Any, Callable, Optional
 from zoneinfo import ZoneInfo
 
 import requests
-from flask import Blueprint, Response, abort, jsonify, make_response, redirect, render_template
+from flask import Blueprint, Response, abort, jsonify, make_response, redirect, render_template, request
 
 from scripts.weather_comparison import PLACES
 from scripts.weather_comparison import _provider as _comparison_provider
@@ -1814,6 +1814,62 @@ def klima_page():
     from scripts import klima_norge
 
     return _frame_headers(make_response(render_template("ver/klima_norge.html", data=klima_norge.offentlig())))
+
+
+def _historikk_args(serie: str) -> dict[str, Any]:
+    """Les fra/til/grense fra spørringen. Standard: denne måneden så langt."""
+    from scripts import historikk
+
+    if serie not in historikk.SERIER:
+        abort(404)
+
+    def md(tekst: Optional[str], standard: tuple[int, int]) -> tuple[int, int]:
+        try:
+            m, d = (int(x) for x in str(tekst).split("-")[:2])
+            if 1 <= m <= 12 and 1 <= d <= 31:
+                return m, d
+        except (TypeError, ValueError):
+            pass
+        return standard
+
+    naa = _local(datetime.now(timezone.utc)).date()
+    siste = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][naa.month - 1]
+    try:
+        grense = min(50.0, max(0.1, float(request.args.get("grense", "0.1"))))
+    except ValueError:
+        grense = 0.1
+    return {"fra": md(request.args.get("fra"), (naa.month, 1)),
+            "til": md(request.args.get("til"), (naa.month, siste)), "grense": grense}
+
+
+def _historikk_resultat(serie: str) -> dict[str, Any]:
+    from scripts import historikk
+
+    a = _historikk_args(serie)
+    df = historikk.hent(serie)
+    key = f"historikk:{serie}:{len(df)}:{df.index.max().date()}:{df['tmid'].count()}:{a['fra']}:{a['til']}:{a['grense']}"
+    return _CACHE.get(key, 3600, lambda: historikk.beregn(df, a["fra"], a["til"], grense=a["grense"]))
+
+
+@vaer_varsel.get("/ver/historikk")
+def historikk_index():
+    return redirect("/ver/historikk/bergen", code=302)
+
+
+@vaer_varsel.get("/ver/historikk/<serie>")
+def historikk_page(serie: str):
+    from scripts import historikk
+
+    resultat = _historikk_resultat(serie)
+    return _frame_headers(make_response(render_template(
+        "ver/historikk.html", info=historikk.info(serie), resultat=resultat)))
+
+
+@vaer_varsel.get("/ver/api/historikk/<serie>")
+def historikk_api(serie: str):
+    response = jsonify(_historikk_resultat(serie))
+    response.headers["Cache-Control"] = "public, max-age=600"
+    return response
 
 
 @vaer_varsel.get("/ver/api/klima/norge")

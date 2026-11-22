@@ -42,6 +42,7 @@ from scripts.weather_comparison import weather_comparison
 from scripts.vaer_varsel import vaer_varsel
 from scripts.station_metrics_cache import start_warmup as start_station_metrics_warmup
 from scripts.klima_norge import start_warmup as start_klima_norge_warmup
+from scripts.historikk import start_warmup as start_historikk_warmup
 from regnskap_routes import regnskap_bp
 from portfolio_rebalancer_routes import portfolio_rebalancer_bp
 from dash_apps.strom import create_dash_app
@@ -387,6 +388,9 @@ def create_app() -> Flask:
     # "Norge i tall" på /ver/klima: rekordene for hele landet hentes i
     # bakgrunnen (målinger hver halvtime, varsel hver time).
     start_klima_norge_warmup()
+
+    # Lange serier (Bergen siden 1861): nye dager og temperatur bakover fra Frost.
+    start_historikk_warmup()
 
     # Bilradar-warmup deaktivert midlertidig: 150 MB-modellen forårsaket
     # OOM-loop på 2 GB-instansen. Aktiveres igjen når modellen er retrent
