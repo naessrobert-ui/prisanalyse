@@ -251,6 +251,7 @@ select{font:inherit;border:1px solid var(--line);border-radius:10px;padding:5px 
 .alert.red{background:#ffdcd5;border-color:#e46a58;color:#560e04}
 .alert .tri{flex:none;width:26px;height:26px;margin-top:1px}
 .alert b{display:block;margin-bottom:2px}
+.alert .when{font-weight:600;margin-bottom:2px}
 .alert details{font-size:.85rem;margin-top:4px}
 .alert summary{cursor:pointer;font-weight:600}
 .alert .tag{margin-top:6px;display:inline-block}
@@ -1014,12 +1015,28 @@ async function mapRadar(){
 
 /* ---------- Farevarsel, AI-tekst, treffsikkerhet ---------- */
 const TRI = c => `<svg class="tri" viewBox="0 0 24 24"><path d="M12 2.8 22.5 21H1.5z" fill="${c === 'red' ? '#d93a2b' : c === 'orange' ? '#f08a24' : '#f2c40f'}" stroke="#3b2b00" stroke-width="1" stroke-linejoin="round"/><path d="M12 9v5.5" stroke="#1a1200" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17.6" r="1.2" fill="#1a1200"/></svg>`;
+// "Gjelder fra i morgen kl. 15 til midnatt" / "Gjelder nå, til kl. 18". MET oppgir tidene i UTC.
+function alertWhen(v){
+  if (!v.start && !v.slutt) return '';
+  const tz = STED_INFO.tz || 'Europe/Oslo';
+  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const loc = t => { const p = Object.fromEntries(fmt.formatToParts(new Date(t)).map(x => [x.type, x.value])); return { d: `${p.year}-${p.month}-${p.day}`, t: `${p.hour}:${p.minute}` }; };
+  const today = loc(Date.now()).d;
+  const dag = d => { if (d === today) return 'i dag'; if (d === addDays(today, 1)) return 'i morgen'; const t = new Date(d + 'T12:00:00Z'); return `${WD[t.getUTCDay()]} ${t.getUTCDate()}. ${MON[t.getUTCMonth()]}`; };
+  const kl = x => x.t === '24' ? 'midnatt' : `kl. ${x.t.endsWith(':00') ? x.t.slice(0, 2) : x.t}`;
+  const naar = (x, ref) => `${x.d === ref ? '' : dag(x.d) + ' '}${kl(x)}`;
+  const s = v.start ? loc(v.start) : null;
+  let e = v.slutt ? loc(v.slutt) : null;
+  if (e && e.t === '00:00') e = { d: addDays(e.d, -1), t: '24' };  // slutt ved midnatt hører til dagen før
+  if (!s || new Date(v.start) <= new Date()) return e ? `Gjelder nå, til ${naar(e, today)}` : 'Gjelder nå';
+  return `Gjelder fra ${dag(s.d)} ${kl(s)}${e ? ` til ${naar(e, s.d)}` : ''}`;
+}
 async function loadAlerts(){
   if (!STED_INFO.norge) return;
   try {
     const r = await fetch(`/ver/api/farevarsel/${STED}${Q}`); if (!r.ok) return;
     const d = await r.json();
-    $('alerts').innerHTML = (d.varsler || []).map(v => `<div class="alert ${v.farge}">${TRI(v.farge)}<div><b>${esc(v.tittel)}</b>${v.beskrivelse ? `<div class="small">${esc(v.beskrivelse)}</div>` : ''}${v.rad ? `<details><summary>Råd</summary>${esc(v.rad)}</details>` : ''}</div></div>`).join('');
+    $('alerts').innerHTML = (d.varsler || []).map(v => `<div class="alert ${v.farge}">${TRI(v.farge)}<div><b>${esc(v.tittel)}</b>${alertWhen(v) ? `<div class="small when">${alertWhen(v)}</div>` : ''}${v.beskrivelse ? `<div class="small">${esc(v.beskrivelse)}</div>` : ''}${v.rad ? `<details><summary>Råd</summary>${esc(v.rad)}</details>` : ''}</div></div>`).join('');
   } catch(e){}
 }
 function ruleSummary(){
