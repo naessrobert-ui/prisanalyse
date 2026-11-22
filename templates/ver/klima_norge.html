@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Norge i tall: varmest, kaldest, våtest | blir det fint?</title>
+<meta name="description" content="Varmest, kaldest, våtest og mest vind, sol og snø i Norge siste døgn, neste døgn, neste uke, denne måneden og i år.">
+<link rel="icon" href="/static/ver/ikoner/clearsky_day.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+
+:root{
+  --bg:#faf8f4;--card:#ffffff;--ink:#14213a;--muted:#6b778a;--line:#ece8e0;--soft:#f3f0ea;
+  --accent:#14213a;--accent2:var(--soft);--gold:#f5a524;--rain:#4a86d6;--rainT:#2a62b0;--cold:#2a62b0;
+  --nightfill:rgba(20,33,58,.045);--r:20px;
+  --sky1:#fff1cf;--sky2:var(--bg);
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#0d1524;--card:#131d2e;--ink:#e9eef5;--muted:#93a0b4;--line:#22304a;--soft:#1a263a;
+    --accent:#e9eef5;--rainT:#86b4f0;--cold:#86b4f0;--nightfill:rgba(255,255,255,.035)}
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;line-height:1.45;font-feature-settings:"tnum" 1,"cv11" 1}
+a{color:inherit}
+.wrap{max-width:920px;margin:0 auto;padding:0 20px}
+button{font:inherit;cursor:pointer;color:inherit}
+.wi{width:1.7em;height:1.7em;vertical-align:middle;display:inline-block}
+
+/* Himmel og topp */
+.sky{background:linear-gradient(180deg,var(--sky1) 0%,var(--sky2) 100%);padding:16px 0 30px;transition:background .6s}
+.sky.sun{--sky1:#ffe39a}
+.sky.part{--sky1:#f6ecd3}
+.sky.cloud{--sky1:#e2e7ee}
+.sky.rain{--sky1:#d2dce8}
+.sky.snow{--sky1:#e6eff9}
+.sky.night{background:linear-gradient(180deg,#14223b 0%,#22355a 78%,var(--bg) 100%);color:#eef2f8;--muted:rgba(238,242,248,.72)}
+@media (prefers-color-scheme:dark){
+  .sky.sun{--sky1:#3b3016}.sky.part{--sky1:#2c2d2c}.sky.cloud{--sky1:#1c2738}.sky.rain{--sky1:#16263d}.sky.snow{--sky1:#1c2a3e}
+}
+.topbar{display:flex;align-items:center;gap:16px;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:9px;text-decoration:none;font-weight:800;font-size:1.18rem;letter-spacing:-.025em;white-space:nowrap}
+.logo .q{color:var(--gold)}
+.search{position:relative;flex:1;max-width:320px}
+.search input{width:100%;border:1px solid rgba(20,33,58,.1);border-radius:999px;padding:9px 14px 9px 36px;font:inherit;font-size:.92rem;background:rgba(255,255,255,.62);color:var(--ink);outline:none}
+.search input::placeholder{color:var(--muted)}
+.search input:focus{background:#fff;color:#14213a}
+.sky.night .search input{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.16);color:#fff}
+@media (prefers-color-scheme:dark){.search input{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.12)}}
+.search svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);opacity:.5;pointer-events:none}
+.qres{position:absolute;left:0;right:0;top:calc(100% + 6px);background:#fff;color:#14213a;border-radius:14px;box-shadow:0 14px 34px rgba(0,0,0,.18);overflow:hidden;z-index:2000;display:none}
+.qres button{display:block;width:100%;text-align:left;border:0;background:none;padding:10px 14px;border-bottom:1px solid #eee;color:#14213a}
+.qres button:hover{background:#f6f3ec}
+.qres small{color:#6b778a}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:14px 0 0;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;display:flex;align-items:center;gap:7px;border:0;background:rgba(255,255,255,.55);border-radius:999px;padding:5px 6px 5px 13px;font-size:.88rem;white-space:nowrap;font-weight:500}
+.chip.on{background:var(--ink);color:var(--bg)}
+.sky.night .chip{background:rgba(255,255,255,.1);color:#eef2f8}
+.sky.night .chip.on{background:#fff;color:#14213a}
+@media (prefers-color-scheme:dark){.chip{background:rgba(255,255,255,.07)}}
+.chip .sc{min-width:26px;height:20px;border-radius:999px;display:inline-grid;place-items:center;font-size:.72rem;font-weight:700;padding:0 6px}
+.chip .x{opacity:.45;padding:0 4px}
+.chip .x:hover{opacity:1}
+
+/* Hero */
+.hero3{padding-top:24px;display:grid;grid-template-columns:auto 1fr;gap:4px 34px;align-items:center}
+.hero3 .place{grid-column:1/-1;font-size:.95rem;color:var(--muted);font-weight:500}
+.hero3 .place b{color:inherit;font-weight:700}
+.sky .hero3 .place b{color:var(--ink)}
+.sky.night .hero3 .place b{color:#fff}
+.bigtemp{display:flex;align-items:center;gap:4px}
+.bigtemp .wi{width:92px;height:92px}
+.bigtemp .t{font-size:5.4rem;font-weight:300;letter-spacing:-.055em;line-height:.9}
+.bigtemp .t.warm{color:inherit}
+.cond{font-size:.95rem;margin-top:8px;font-weight:600}
+.cond .m{color:var(--muted);font-weight:400}
+.answer .q{font-size:.74rem;text-transform:uppercase;letter-spacing:.1em;font-weight:700;color:var(--muted)}
+.answer .a{font-size:2.05rem;font-weight:750;line-height:1.12;letter-spacing:-.03em;margin:6px 0 8px}
+.answer .a .hl{background:linear-gradient(transparent 60%,rgba(245,165,36,.42) 60%);padding:0 2px}
+.answer .av{font-size:.98rem;color:var(--muted)}
+.ncl{margin-top:12px;font-size:.9rem;display:flex;align-items:center;gap:10px;color:var(--muted)}
+.ncl b{color:inherit;font-weight:600}
+.ncmini{display:inline-flex;align-items:flex-end;gap:3px;height:22px;padding:2px 0}
+.ncmini i{width:7px;background:var(--rain);border-radius:2px;display:block}
+.ncmini i.z{background:currentColor;opacity:.2;height:3px!important}
+
+/* Faner */
+nav.tabs{position:sticky;top:0;z-index:1500;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+nav.tabs .wrap{display:flex;gap:2px}
+.tab-btn{border:0;background:none;padding:13px 14px 11px;color:var(--muted);font-weight:600;font-size:.92rem;border-bottom:2px solid transparent;display:flex;align-items:center;gap:7px}
+.tab-btn svg{width:18px;height:18px}
+.tab-btn.on{color:var(--ink);border-bottom-color:var(--gold)}
+
+main{padding:24px 0 40px}
+.tab{display:none}
+.tab.on{display:block;animation:fade .3s ease}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:20px;margin-bottom:16px}
+.card h2{font-size:.74rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:700;margin:0 0 14px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.card h2 .h-l{display:flex;align-items:center;gap:8px}
+.card h2 > span:not(.h-l),.card h2 a,.card h2 select,.card h2 button{text-transform:none;letter-spacing:0;font-weight:500}
+.muted{color:var(--muted)}
+.small{font-size:.85rem}
+.kgrid.uten-kart{grid-template-columns:1fr}.rek.tom{opacity:.6}.rek.tom .rek-m{margin-top:10px}.venter{grid-column:1/-1;padding:22px}.rek-s a{color:inherit;text-decoration:none}.rek-s a:hover b{text-decoration:underline}.pseg button:disabled{opacity:.4;cursor:default}
+.banner{background:#fff7e0;border:1px solid #f1dc9c;color:#5c4700;border-radius:12px;padding:9px 14px;margin-bottom:16px;font-size:.88rem}
+@media (prefers-color-scheme:dark){.kgrid.uten-kart{grid-template-columns:1fr}.rek.tom{opacity:.6}.rek.tom .rek-m{margin-top:10px}.venter{grid-column:1/-1;padding:22px}.rek-s a{color:inherit;text-decoration:none}.rek-s a:hover b{text-decoration:underline}.pseg button:disabled{opacity:.4;cursor:default}
+.banner{background:#2b2412;border-color:#5a4a1c;color:#f1dc9c}}
+.skel{height:120px;border-radius:var(--r);background:linear-gradient(90deg,var(--soft) 0%,var(--card) 50%,var(--soft) 100%);background-size:200% 100%;animation:sh 1.2s infinite;margin-bottom:16px}
+@keyframes sh{from{background-position:200% 0}to{background-position:-200% 0}}
+.tag{font-size:.64rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:var(--soft);color:var(--muted);border-radius:6px;padding:2px 7px}
+.btnlink{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:5px 13px;font-size:.82rem}
+.btnlink:hover{border-color:var(--muted)}
+
+/* Timegraf */
+.chart-wrap{overflow-x:auto;margin:0 -20px;padding:0 20px 4px;scrollbar-width:thin;-webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 36px),transparent);mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 36px),transparent)}
+.hc{display:block}
+.hc text{fill:currentColor;font-family:inherit}
+.hc .tlab{font-size:12.5px;font-weight:700}
+.hc .tlab.cold{fill:var(--cold)}
+.hc .hlab{font-size:11px;fill:var(--muted)}
+.hc .dlab{font-size:10.5px;font-weight:700;letter-spacing:.08em;fill:var(--ink)}
+.hc .plab{font-size:10px;fill:var(--rainT);font-weight:600}
+.hc .curve{fill:none;stroke:var(--ink);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.hc .night{fill:var(--nightfill)}
+.hc .sep{stroke:var(--line);stroke-width:1}
+.hc .bar{fill:var(--rain);opacity:.85}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.75rem;color:var(--muted);margin-top:12px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+
+/* Tabell (time for time) */
+.hrow{display:grid;grid-template-columns:4px 34px 38px 56px 84px 110px 1fr;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--line);font-size:.93rem}
+.hrow .st{align-self:stretch;border-radius:3px;min-height:26px}
+.hrow.night .st{opacity:.5}
+.hrow .kl{font-weight:600}
+.hrow .em{text-align:center}
+.hrow .em .wi{width:30px;height:30px}
+.hrow .tp{font-weight:650}
+.hrow .pr{color:var(--rainT)}
+.hrow .wd span{color:var(--muted)}
+.hrow .lb{font-size:.72rem;font-weight:700;text-align:right}
+.hhead{border-top:0;font-size:.72rem;color:var(--muted);padding:0 0 4px}
+.hsep{padding:14px 0 4px;font-weight:700;font-size:.9rem}
+.warm{color:inherit}.cold{color:var(--cold)}
+
+/* Dager */
+.drow{border-top:1px solid var(--line);padding:12px 2px 13px;cursor:pointer}
+.drow:first-of-type{border-top:0;padding-top:2px}
+.drow-top{display:grid;grid-template-columns:120px repeat(4,42px) 1fr 70px 20px;align-items:center;gap:4px}
+.dn{font-weight:650;line-height:1.2}
+.dn small{display:block;color:var(--muted);font-weight:400;font-size:.76rem}
+.p4{text-align:center;line-height:0}
+.p4 .wi{width:34px;height:34px}
+.tt{text-align:right;font-weight:650;font-size:1.02rem}
+.tt .lo{color:var(--muted);font-weight:500;margin-left:6px}
+.pp{text-align:right;color:var(--rainT);font-size:.88rem;white-space:nowrap}
+.chev{text-align:right;color:var(--muted);transition:transform .2s;line-height:0}
+.drow.open .chev{transform:rotate(180deg)}
+.thin{display:grid;grid-template-columns:repeat(18,1fr);gap:2px;margin-top:10px}
+.thin i{height:5px;border-radius:3px;display:block}
+.thin i.n{opacity:.5}
+.dexp{padding:2px 2px 14px}
+.dmeta{display:flex;gap:16px;flex-wrap:wrap;font-size:.86rem;margin:0 0 10px;align-items:center}
+.conf{color:var(--muted);font-size:.82rem}
+.conf b{letter-spacing:1px;color:var(--ink);font-weight:400}
+
+.summary p{margin:0 0 8px;font-size:1.02rem;line-height:1.6}
+
+/* Lister og piller */
+.win{display:flex;align-items:center;gap:14px;padding:12px 0;border-top:1px solid var(--line)}
+.win:first-child{border-top:0}
+.win .pill{flex:none;width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-weight:800;font-size:1rem}
+.win .w-main{flex:1}
+.pill-s{display:inline-grid;place-items:center;min-width:34px;height:24px;border-radius:8px;font-weight:700;font-size:.82rem;padding:0 6px}
+
+/* Aktivitet */
+.acts{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.act{border:1px solid var(--line);border-radius:16px;background:var(--card);padding:14px;text-align:left;display:flex;flex-direction:column;gap:3px;align-items:flex-start;transition:border-color .15s}
+.act:hover{border-color:var(--muted)}
+.act.on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.act .ai{font-size:1.45rem}
+.act b{font-weight:650}
+.act small{color:var(--muted);font-size:.8rem}
+.aday{display:grid;grid-template-columns:110px 1fr;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.aday:first-of-type{border-top:0}
+.aday .dn{font-weight:650}
+.hstrip{display:grid;grid-template-columns:repeat(18,1fr);gap:2px}
+.aday .hstrip i{height:14px;border-radius:4px;display:block}
+.hstrip i.n{opacity:.5}
+.aday .meta{font-size:.8rem;margin-top:5px}
+
+/* Reis */
+.seg{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.seg button{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 13px;font-size:.86rem}
+.seg button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+#map{height:360px;border-radius:14px;margin-bottom:14px;background:var(--soft);display:grid;place-items:center;color:var(--muted)}
+.rrow{display:grid;grid-template-columns:28px 1fr 46px;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.rrow .rk{font-weight:700;color:var(--muted);text-align:center}
+.rrow .nm{font-weight:650}
+.rrow .nm small{font-weight:500;color:var(--muted)}
+.rrow .bar{height:6px;border-radius:99px;background:var(--soft);margin:6px 0 5px;overflow:hidden}
+.rrow .bar i{display:block;height:100%;border-radius:99px}
+.rrow .dt{font-size:.8rem;color:var(--muted)}
+.rrow.home{background:var(--soft);border-radius:12px;padding:10px 8px;border-top:0;margin-bottom:6px}
+
+/* Lenker */
+.links{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:0 22px}
+.links a{display:flex;justify-content:space-between;align-items:center;padding:11px 2px;border-bottom:1px solid var(--line);text-decoration:none;font-weight:550;font-size:.92rem}
+.links a span{display:none}
+.links a::after{content:"→";color:var(--muted);transition:transform .15s}
+.links a:hover::after{transform:translateX(3px)}
+
+/* Klima */
+.chart{width:100%;height:auto;display:block}
+.chart text{fill:var(--muted)}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.kpi{background:var(--soft);border-radius:14px;padding:12px 14px}
+.kpi b{display:block;font-size:1.45rem;line-height:1.15;font-weight:700}
+.kpi span{font-size:.8rem;color:var(--muted)}
+select{font:inherit;border:1px solid var(--line);border-radius:10px;padding:5px 8px;background:var(--card);color:var(--ink)}
+
+/* Snø-topp */
+.hero{padding:22px 20px}
+.hero .q{color:var(--muted);margin:0 0 4px;font-size:.9rem}
+.hero .ans{font-size:1.55rem;font-weight:750;letter-spacing:-.02em;margin:0 0 6px;line-height:1.2}
+.hero .avoid{margin:0;color:var(--muted)}
+.pbtn{border:0;border-radius:999px;padding:7px 14px;background:var(--ink);color:var(--bg);font-weight:600;font-size:.88rem}
+
+
+/* v4: topp */
+.upd{font-weight:400}
+.facts{margin-top:10px;display:flex;flex-direction:column;gap:4px;font-size:.88rem;color:var(--muted)}
+.facts .m{opacity:.85}
+.wa{display:inline-block;font-weight:700;color:var(--ink)}
+.sky.night .wa{color:#fff}
+.minis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:22px}
+.mini{background:rgba(255,255,255,.62);border:1px solid rgba(20,33,58,.06);border-radius:16px;padding:13px 15px;display:flex;flex-direction:column}
+.mini.wet{background:rgba(232,241,252,.85)}
+.sky.night .mini{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.1)}
+@media (prefers-color-scheme:dark){.mini,.mini.wet{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.08)}}
+.mini .k{font-size:.66rem;text-transform:uppercase;letter-spacing:.1em;font-weight:700;color:var(--muted)}
+.mini .h{font-weight:700;font-size:1.05rem;margin:6px 0 2px;line-height:1.25;display:flex;gap:8px;align-items:center}
+.mini .h .wi,.mini .h .ui{width:28px;height:28px;flex:none}
+.mini .s{font-size:.82rem;color:var(--muted)}
+.mini a{margin-top:auto;padding-top:8px;font-size:.8rem;font-weight:650;text-decoration:none;align-self:flex-end}
+.ncbars{display:flex;align-items:flex-end;gap:3px;height:28px;margin:10px 0 3px}
+.ncbars i{flex:1;background:var(--rain);border-radius:2px 2px 1px 1px;display:block}
+.ncbars i.z{background:currentColor;opacity:.15;height:2px;flex:1}
+.nclab{display:flex;justify-content:space-between;font-size:.62rem;color:var(--muted)}
+.alert{display:flex;gap:12px;align-items:flex-start;border-radius:14px;padding:12px 14px;margin-top:16px;background:#fff4c2;border:1px solid #efd04f;color:#3a2e00}
+.alert.orange{background:#ffe5c7;border-color:#f2a050;color:#472300}
+.alert.red{background:#ffdcd5;border-color:#e46a58;color:#560e04}
+.alert .tri{flex:none;width:26px;height:26px;margin-top:1px}
+.alert b{display:block;margin-bottom:2px}
+.alert details{font-size:.85rem;margin-top:4px}
+.alert summary{cursor:pointer;font-weight:600}
+.alert .tag{margin-top:6px;display:inline-block}
+/* v4: graf og radar */
+.card h2 .h-r{display:flex;align-items:center;gap:12px}
+.toggle{display:flex;align-items:center;gap:6px;font-size:.82rem;color:var(--muted);cursor:pointer}
+.toggle input{accent-color:var(--ink)}
+.hc .past{fill:var(--soft)}
+.hc .pastc{stroke:var(--muted);stroke-width:1.6}
+.hc .tlab.pt{fill:var(--muted);font-weight:600}
+.hc .bar.pb{opacity:.4}
+.hc .cmp{fill:none;stroke:#8b78d6;stroke-width:1.7;stroke-dasharray:5 4}
+.hc .nowline{stroke:var(--gold);stroke-width:1.5;stroke-dasharray:4 3}
+.hc .nowlab{fill:var(--ink);font-weight:700}
+.hc .dlab.muted{fill:var(--muted)}
+.legend i.dash{width:16px;height:0;border-top:2px dashed #8b78d6;border-radius:0;vertical-align:3px}
+#radar{height:320px;border-radius:14px;overflow:hidden;background:var(--soft);display:grid;place-items:center;color:var(--muted);z-index:0;position:relative}
+.rctl{display:flex;align-items:center;gap:12px;margin-top:10px;font-size:.85rem}
+.rctl input[type=range]{flex:1;accent-color:var(--gold)}
+.rctl .tm{min-width:110px;font-weight:600;text-align:right}
+.rctl .btnlink{width:40px;padding:5px 0}
+
+#radar.met{height:auto;display:block;background:#fff;border:1px solid var(--line)}
+#radar.met img{display:block;width:100%;height:auto;max-height:540px;object-fit:contain;margin:0 auto}
+.mini-seg{margin:0!important}
+.mini-seg button{padding:3px 11px!important;font-size:.78rem!important}
+.rsrc{margin:8px 0 0}
+.rsrc:empty{display:none}
+.leaflet-container{font-family:inherit}
+
+.card.slim{display:flex;align-items:center;gap:14px;padding:12px 20px}
+.slim-k{font-size:.74rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:700}
+.slim-t{flex:1}
+.rnote{text-transform:none;letter-spacing:0;font-weight:600;color:var(--rainT);margin-left:8px;font-size:.82rem}
+@media (max-width:700px){.card.slim{flex-wrap:wrap;gap:6px 12px}.card.slim .btnlink{margin-left:auto}.slim-t{order:3;flex-basis:100%}}
+/* v4: steder */
+.chip .wi{width:22px;height:22px;margin:-4px -2px}
+.chip .tc{font-weight:700}
+.chip.on .tc.cold{color:#9cc4ff}
+.pt{width:100%;border-collapse:collapse}
+.pt th{font-size:.75rem;color:var(--muted);font-weight:500;text-align:center;padding:0 4px 8px}
+.pt td{border-top:1px solid var(--line);padding:8px 4px;text-align:center;white-space:nowrap}
+.pt td.n{text-align:left;font-weight:650}
+.pt tr{cursor:pointer}
+.pt tr:hover td{background:var(--soft)}
+.pt tr.on td.n::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--gold);margin-right:7px;vertical-align:2px}
+.pt .wi{width:30px;height:30px}
+.pt .tx{font-weight:650;margin-left:2px}
+.pt small{display:block;color:var(--rainT);font-size:.7rem;margin-top:-2px}
+@media (max-width:700px){
+  .minis{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;margin:20px -16px 0;padding:0 16px;scrollbar-width:none}
+  .minis::-webkit-scrollbar{display:none}
+  .mini{min-width:78%;scroll-snap-align:start}
+  .card h2 .h-r{gap:8px}
+  .toggle{font-size:.75rem}
+  .hm{display:none}
+  .card h2{flex-wrap:wrap}
+  #radar{height:260px}
+  .pt .wi{width:24px;height:24px}
+  .pt .tx{font-size:.9rem}
+  .pt td.n{font-size:.88rem;white-space:normal}
+}
+
+footer{color:var(--muted);font-size:.78rem;padding:10px 0 40px;text-align:center}
+footer a{color:inherit}
+
+@media (max-width:700px){
+  .wrap{padding:0 16px}
+  .logo span.full{display:none}
+  .search{max-width:none}
+  .hero3{grid-template-columns:1fr;gap:4px;padding-top:18px}
+  .bigtemp .wi{width:70px;height:70px}
+  .bigtemp .t{font-size:4.2rem}
+  .answer{margin-top:14px}
+  .answer .a{font-size:1.6rem}
+  nav.tabs{position:fixed;bottom:0;left:0;right:0;top:auto;border-top:1px solid var(--line);border-bottom:0;padding-bottom:env(safe-area-inset-bottom)}
+  nav.tabs .wrap{padding:0 4px}
+  .tab-btn{flex:1;flex-direction:column;gap:3px;font-size:.68rem;padding:9px 2px 9px;border-bottom:0;border-top:2px solid transparent}
+  .tab-btn.on{border-top-color:var(--gold)}
+  body{padding-bottom:72px}
+  .chart-wrap{margin:0 -20px;padding:0 20px 4px}
+  .hrow{grid-template-columns:4px 24px 32px 42px 1fr 62px;gap:8px}
+  .hrow .wd{text-align:right}
+  .hrow .lb{display:none}
+  .drow-top{grid-template-columns:66px repeat(4,1fr) 58px 50px 12px;gap:2px}
+  .pp{font-size:.78rem}
+  .p4 .wi{width:28px;height:28px}
+  .tt{font-size:.95rem}.tt .lo{margin-left:3px}
+  .acts{grid-template-columns:1fr 1fr}
+  .aday{grid-template-columns:76px 1fr}
+  .kpi b{font-size:1.15rem}
+}
+/* Klimasiden */
+.tab-btn{text-decoration:none}
+.khero{padding:26px 0 4px}
+.kicker{font-size:.74rem;text-transform:uppercase;letter-spacing:.12em;font-weight:700;color:var(--muted)}
+.khero h1{font-size:2.7rem;line-height:1.05;letter-spacing:-.035em;margin:6px 0 8px;font-weight:800}
+.khero h1 span{color:#b86e00}
+.lead{margin:0 0 18px;color:var(--muted);font-size:1.02rem;max-width:560px}
+.pseg{display:inline-flex;background:rgba(255,255,255,.65);border:1px solid rgba(20,33,58,.08);border-radius:999px;padding:4px;gap:2px;flex-wrap:wrap}
+.pseg button{border:0;background:none;border-radius:999px;padding:8px 16px;font-weight:600;font-size:.92rem;color:var(--muted)}
+.pseg button.on{background:var(--ink);color:var(--bg)}
+@media (prefers-color-scheme:dark){.pseg{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.1)}}
+.tavle{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px}
+.rek{position:relative;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px 18px 14px;overflow:hidden;animation:fade .35s ease}
+.rek::before{content:"";position:absolute;inset:0 0 auto 0;height:5px;background:var(--c)}
+.rek-top{display:flex;align-items:center;gap:8px}
+.rek-ik{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--c);color:var(--fg);flex:none}
+.rek-k{font-size:.74rem;text-transform:uppercase;letter-spacing:.1em;font-weight:800;color:var(--muted);flex:1}
+.del{border:0;background:none;color:var(--muted);padding:4px;border-radius:8px;opacity:.7}
+.del:hover{opacity:1;background:var(--soft)}
+.rek-v{font-size:3.1rem;font-weight:300;letter-spacing:-.045em;line-height:1;margin:14px 0 6px}
+.rek-v span{font-size:1.25rem;font-weight:500;letter-spacing:0;margin-left:2px;color:var(--muted)}
+.rek-v span.deg{font-size:inherit;font-weight:300;margin-left:0;color:inherit}
+.rek-s b{font-size:1.08rem}
+.rek-s span{color:var(--muted);font-size:.85rem;margin-left:4px}
+.rek-m{font-size:.86rem;color:var(--muted);margin:6px 0 10px;min-height:2.4em}
+.rek-l{list-style:none;margin:0;padding:10px 0 0;border-top:1px solid var(--line);font-size:.84rem;display:flex;flex-direction:column;gap:3px}
+.rek-l li{display:flex;gap:6px}
+.rek-l li span{color:var(--muted);width:16px}
+.rek-l li b{margin-left:auto;font-weight:650}
+.kgrid{display:grid;grid-template-columns:1.5fr 1fr;gap:16px;margin-bottom:16px}
+.kgrid .card{margin-bottom:0}
+#kart{height:380px;border-radius:14px;overflow:hidden;background:var(--soft)}
+.leaflet-tile.basekart,.basekart .leaflet-tile{filter:grayscale(1) brightness(1.04) contrast(.88)}
+@media (prefers-color-scheme:dark){.leaflet-tile.basekart,.basekart .leaflet-tile{filter:grayscale(1) invert(1) brightness(.8) contrast(.9)}}
+.kp-w{background:none;border:none}
+.kp{display:inline-flex;align-items:center;gap:4px;transform:translate(-50%,-50%);background:var(--c);color:var(--fg);border-radius:999px;padding:4px 9px 4px 7px;font:700 12.5px/1 Inter,system-ui,sans-serif;white-space:nowrap;box-shadow:0 0 0 2px #fff,0 4px 10px rgba(15,23,42,.25)}
+.sp-tall{font-size:4rem;font-weight:300;letter-spacing:-.05em;line-height:1}
+.sp-tall span{font-size:1.6rem;color:var(--muted)}
+.sp-bar{position:relative;height:14px;border-radius:99px;background:linear-gradient(90deg,#8fc0f0,#e6dcc4 55%,#f5a524);margin:54px 0 8px}
+.sp-fill{position:absolute;top:-3px;bottom:-3px;border:2px solid var(--ink);border-radius:99px}
+.sp-pin{position:absolute;bottom:22px;transform:translateX(-50%);font-size:.78rem;color:var(--muted);text-align:center;white-space:nowrap}
+.sp-pin b{display:block;font-size:1rem;color:var(--ink)}
+.sp-pin.kald{transform:translateX(-15%)}
+.sp-pin.varm{transform:translateX(-85%)}
+.sp-null{position:absolute;top:-6px;bottom:-6px;width:2px;background:var(--ink);opacity:.35}
+.sp-akse{display:flex;justify-content:space-between;font-size:.72rem;color:var(--muted)}
+.sp-fakta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:26px;padding-top:16px;border-top:1px solid var(--line)}
+.sp-fakta b{display:block;font-size:1.5rem;font-weight:700;letter-spacing:-.02em}
+.sp-fakta span{font-size:.78rem;color:var(--muted)}
+.uv{display:flex;gap:14px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+.uv:first-child{border-top:0;padding-top:2px}
+.uv p{margin:0;font-size:1rem}
+.uv-tag{flex:none;min-width:74px;text-align:center;background:var(--c);color:var(--fg);border-radius:10px;padding:7px 8px;font-weight:800;font-size:.9rem}
+.verktoy{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.verktoy a{display:flex;flex-direction:column;gap:3px;padding:14px;border:1px solid var(--line);border-radius:16px;text-decoration:none;transition:transform .15s,border-color .15s}
+.verktoy a:hover{transform:translateY(-2px);border-color:var(--muted)}
+.verktoy .vi{color:var(--c);margin-bottom:6px;height:34px}
+.verktoy small{color:var(--muted);font-size:.8rem}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:.88rem;z-index:3000;max-width:90vw;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+@media (max-width:860px){.tavle{grid-template-columns:1fr 1fr}.kgrid{grid-template-columns:1fr}.verktoy{grid-template-columns:1fr 1fr}}
+@media (max-width:560px){.khero h1{font-size:2.05rem}.tavle{grid-template-columns:1fr 1fr;gap:10px}.rek{padding:14px 12px 12px}.rek-v{font-size:2.3rem}
+  .rek-m{display:none}.rek-l{font-size:.78rem}.rek-s span{display:block;margin:0}.pseg{display:flex;width:100%;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}.pseg::-webkit-scrollbar{display:none}.pseg button{flex:none;padding:8px 12px;font-size:.84rem;white-space:nowrap}.pseg .lg{display:none}.pseg button::first-letter{text-transform:uppercase}.verktoy{grid-template-columns:1fr}
+  .del{display:none}.uv-tag{min-width:62px;font-size:.82rem}.uv p{font-size:.92rem}}
+</style>
+</head>
+<body>
+<div class="sky part" id="sky">
+  <div class="wrap">
+    <div class="topbar">
+      <a class="logo" href="/ver/varsel" data-sted>
+        <svg width="30" height="30" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="7" fill="#f5a524"/><g stroke="#f5a524" stroke-width="2.4" stroke-linecap="round"><path d="M17 3v4M17 27v4M3 17h4M27 17h4M7.1 7.1l2.8 2.8M24.1 24.1l2.8 2.8M7.1 26.9l2.8-2.8M24.1 9.9l2.8-2.8"/></g></svg>
+        <span>blir det fint<span class="q">?</span></span>
+      </a>
+    </div>
+    <div class="khero">
+      <div class="kicker">Klima og statistikk</div>
+      <h1>Norge <span id="periodeTittel">siste døgn</span></h1>
+      <p class="lead" id="lead">Varmest, kaldest, våtest og mest vind, sol og snø blant over 600 målestasjoner.</p>
+      <div class="pseg" id="periode" role="tablist">
+        <button data-p="sist" class="on">Siste døgn</button>
+        <button data-p="neste">Neste døgn</button>
+        <button data-p="uke">Neste 7 døgn</button>
+        <button data-p="mnd"><span class="lg">Denne </span>måneden</button>
+        <button data-p="aar">I år</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<nav class="tabs">
+  <div class="wrap">
+    <a class="tab-btn" href="/ver/varsel" data-sted><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8.5" r="3.5"/><path d="M9 2v1.2M3.2 8.5H2M4.9 4.4l.9.9M13.1 4.4l-.9.9"/><path d="M8.5 20h8.5a4 4 0 0 0 0-8 5 5 0 0 0-9.4 1.6A3.2 3.2 0 0 0 8.5 20z"/></svg>Varsel</a>
+    <a class="tab-btn" href="/ver/varsel#aktivitet" data-sted="#aktivitet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg>Aktivitet</a>
+    <a class="tab-btn" href="/ver/varsel#reis" data-sted="#reis"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3 3 10.5l7 2.5 2.5 7L21 3z"/><path d="M10 13l4.5-4.5"/></svg>Reis</a>
+    <a class="tab-btn on" href="/ver/klima" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20v-8M11 20V5M17 20v-5M3 20h18"/></svg>Klima</a>
+    <a class="tab-btn" href="/ver/varsel#sno" data-sted="#sno"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M3.4 7l17.2 10M3.4 17 20.6 7M9 3.5l3 2 3-2M9 20.5l3-2 3 2"/></svg>Snø</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+  <section class="tavle" id="tavle" aria-live="polite"></section>
+
+  <div class="kgrid">
+    <div class="card kart-card"><h2><span class="h-l">På kartet</span><span class="muted small" id="kartTekst">rekordene siste døgn</span></h2>
+      <div id="kart"></div>
+    </div>
+    <div class="card spenn-card"><h2><span class="h-l">Hele Norge i ett tall</span></h2>
+      <div id="spenn"></div>
+    </div>
+  </div>
+
+  <div class="card"><h2><span class="h-l">Uvanlig nå</span><span class="muted small">sammenlignet med normalen 1991–2020</span></h2>
+    <div id="uvanlig"></div>
+  </div>
+
+  <div class="card"><h2><span class="h-l">Grav dypere</span></h2>
+    <div class="verktoy">
+      <a href="/ver/nedbor"><span class="vi" style="--c:#2a62b0"><svg width="56" height="34" viewBox="0 0 56 34"><g fill="currentColor"><rect x="2" y="18" width="7" height="16" rx="2"/><rect x="12" y="8" width="7" height="26" rx="2"/><rect x="22" y="22" width="7" height="12" rx="2"/><rect x="32" y="2" width="7" height="32" rx="2"/><rect x="42" y="14" width="7" height="20" rx="2"/></g></svg></span><b>Nedbør</b><small>Kart med mm per stasjon, siste døgn til hele året</small></a>
+      <a href="/ver/solskinn"><span class="vi" style="--c:#e9a400"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="4.5" fill="currentColor" fill-opacity=".25"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></span><b>Solskinn</b><small>Soltimer per stasjon og måned</small></a>
+      <a href="/ver/vind"><span class="vi" style="--c:#5b6c82"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M3 8h11a3 3 0 1 0-3-3M3 12h15a3 3 0 1 1-3 3M3 16h8"/></svg></span><b>Vind</b><small>Sterkeste kast og middelvind</small></a>
+      <a href="/ver/min-temp"><span class="vi" style="--c:#4a8ad6"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 3v11"/><circle cx="12" cy="17" r="3.2" fill="currentColor" fill-opacity=".25"/><path d="M5 5l3 3M5 8l3-3"/></svg></span><b>Minimumstemperatur</b><small>Kaldeste steder natt for natt</small></a>
+      <a href="/ver/normaler"><span class="vi" style="--c:#7a6f55"><svg width="56" height="34" viewBox="0 0 56 34" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M2 26C12 26 14 6 28 6s16 20 26 20" /><path d="M2 30h52" stroke-opacity=".35"/></svg></span><b>Værnormaler</b><small>Hva som er vanlig hvor og når</small></a>
+      <a href="/ver/temp-sammenlign"><span class="vi" style="--c:#b86e00"><svg width="56" height="34" viewBox="0 0 56 34" fill="none" stroke-width="2.2" stroke-linecap="round"><path d="M2 26C12 22 18 10 28 12s18 8 26 2" stroke="currentColor"/><path d="M2 30C14 26 20 18 30 20s16 4 24-2" stroke="#4a8ad6"/></svg></span><b>Sammenlign to år</b><small>Temperatur år mot år for et sted</small></a>
+    </div>
+  </div>
+</main>
+
+<footer class="wrap"><span id="oppdatert"></span> Målinger: <a href="https://frost.met.no/" target="_blank" rel="noopener">Frost / MET Norway</a> (CC BY 4.0). Varsel: <a href="https://www.yr.no/" target="_blank" rel="noopener">Yr</a>. Normaler: 1991–2020. Kart: © OpenStreetMap.</footer>
+<script>
+const $ = id => document.getElementById(id);
+const fmt = (v, d = 1) => (Math.round(v * 10 ** d) / 10 ** d).toFixed(d).replace('.', ',').replace('-', '−');
+
+/* Kategoriene på tavla. Farger fra sol-skalaen: varmt = rav, kaldt = isblått, osv. */
+const KAT = {
+  varm: { navn: 'Varmest', farge: '#f5a524', fg: '#4a2c00', ikon: '<path d="M12 3v11"/><circle cx="12" cy="17" r="3.2"/><path d="M15 6h3M15 9h2"/>', enhet: '°' },
+  kald: { navn: 'Kaldest', farge: '#8fc0f0', fg: '#0f2f55', ikon: '<path d="M12 3v11"/><circle cx="12" cy="17" r="3.2"/><path d="M5 5l3 3M5 8l3-3"/>', enhet: '°' },
+  vaat: { navn: 'Våtest', farge: '#2a62b0', fg: '#ffffff', ikon: '<path d="M12 3c-3 4.5-6 7.5-6 11a6 6 0 0 0 12 0c0-3.5-3-6.5-6-11z"/>', enhet: ' mm' },
+  vind: { navn: 'Mest vind', farge: '#5b6c82', fg: '#ffffff', ikon: '<path d="M3 8h11a3 3 0 1 0-3-3M3 12h15a3 3 0 1 1-3 3M3 16h8"/>', enhet: ' m/s' },
+  sol:  { navn: 'Mest sol', farge: '#fbd35b', fg: '#4d3a00', ikon: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>', enhet: ' t' },
+  sno:  { navn: 'Mest snø', farge: '#e6f0fb', fg: '#1f3f66', ikon: '<path d="M12 2v20M3.4 7l17.2 10M3.4 17 20.6 7M9 3.5l3 2 3-2M9 20.5l3-2 3 2"/>', enhet: ' cm' },
+};
+
+/* Tallene er forhåndsberegnet på serveren og bakt inn i siden, så den tegnes med en gang.
+   Oppdateres i bakgrunnen: målinger hver halvtime, varsel hver time. */
+let P = {{ data|tojson }};
+const REKKEFOLGE = ['sist', 'neste', 'uke', 'mnd', 'aar'];
+
+let periode = REKKEFOLGE.find(k => P[k]) || 'sist', map = null;
+const esc = t => String(t).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'})[c]);
+const ikon = (k, s = 22) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${KAT[k].ikon}</svg>`;
+function verdi(k, v){
+  if (k === 'vaat' && v >= 100) return Math.round(v).toLocaleString('nb-NO');
+  if (k === 'sol' && v >= 10) return Math.round(v).toLocaleString('nb-NO');
+  if (k === 'sno') return String(Math.round(v));
+  return fmt(v, 1);
+}
+function etikett(k, d){
+  if (k === 'vind') return 'Mest vind (kast)';
+  if (k === 'sno') return d.nysno ? 'Mest nysnø' : 'Mest snø';
+  if (k === 'sol' && (periode === 'neste' || periode === 'uke')) return 'Mest sol (varslet)';
+  return KAT[k].navn;
+}
+function delTekst(k, d){ return `${etikett(k, d)} i Norge ${P[periode].tittel}: ${verdi(k, d.v)}${KAT[k].enhet.trim() === '°' ? '°' : KAT[k].enhet} i ${d.sted}. blirdetfint.no`; }
+
+function kort(k, d){
+  const kat = KAT[k];
+  if (!d) return `<article class="rek tom" style="--c:${kat.farge};--fg:${kat.fg}">
+      <div class="rek-top"><span class="rek-ik">${ikon(k)}</span><span class="rek-k">${kat.navn}</span></div>
+      <div class="rek-m">Ingen målinger for denne perioden ennå.</div></article>`;
+  return `<article class="rek" style="--c:${kat.farge};--fg:${kat.fg}">
+      <div class="rek-top"><span class="rek-ik">${ikon(k)}</span><span class="rek-k">${etikett(k, d)}</span>
+        <button class="del" title="Del" aria-label="Del" onclick="del('${k}')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13"/></svg></button></div>
+      <div class="rek-v">${verdi(k, d.v)}<span>${kat.enhet}</span></div>
+      <div class="rek-s"><a href="/ver/varsel/p${(+d.lat).toFixed(3)}_${(+d.lon).toFixed(3)}?navn=${encodeURIComponent(d.sted)}" title="Se varselet for ${esc(d.sted)}"><b>${esc(d.sted)}</b></a> <span>${esc(d.fylke || '')}</span></div>
+      <div class="rek-m">${esc(d.merk || '')}</div>
+      <ol class="rek-l">${(d.topp || []).map(([n, v], i) => `<li><span>${i + 2}.</span> ${esc(n)} <b>${verdi(k, v)}${kat.enhet}</b></li>`).join('')}</ol>
+    </article>`;
+}
+function tegnTavle(){
+  const p = P[periode];
+  document.querySelectorAll('#periode button').forEach(b => {
+    b.classList.toggle('on', b.dataset.p === periode);
+    b.disabled = !P[b.dataset.p];
+  });
+  if (!p){
+    $('tavle').innerHTML = '<div class="card venter">Tallene for hele landet hentes nå. Siden oppdaterer seg selv om et øyeblikk.</div>';
+    return;
+  }
+  $('periodeTittel').textContent = p.tittel;
+  $('lead').textContent = p.lead || '';
+  $('kartTekst').textContent = p.kart || '';
+  $('tavle').innerHTML = Object.keys(KAT).map(k => kort(k, p[k])).join('');
+  tegnSpenn(); tegnKart();
+}
+function tegnSpenn(){
+  const p = P[periode], kort = document.querySelector('.spenn-card');
+  if (!p || !p.kald || !p.varm){ kort.style.display = 'none'; return; }
+  kort.style.display = '';
+  const lo = p.kald.v, hi = p.varm.v;
+  const min = Math.min(-45, Math.floor(lo - 3)), max = Math.max(35, Math.ceil(hi + 3)), x = v => ((v - min) / (max - min) * 100).toFixed(1);
+  const fakta = (p.fakta || []).map(([t, s]) => `<div><b>${esc(t)}</b><span>${esc(s)}</span></div>`).join('');
+  $('spenn').innerHTML = `
+    <div class="sp-tall">${fmt(p.spenn, 1)}<span>°</span></div>
+    <p class="muted" style="margin:0 0 16px">skilte kaldeste og varmeste sted ${esc(p.tittel)}.</p>
+    <div class="sp-bar"><div class="sp-fill" style="left:${x(lo)}%;width:${x(hi) - x(lo)}%"></div>
+      <span class="sp-pin kald" style="left:${x(lo)}%"><b>${fmt(lo, 1)}°</b>${esc(p.kald.sted)}</span>
+      <span class="sp-pin varm" style="left:${x(hi)}%"><b>${fmt(hi, 1)}°</b>${esc(p.varm.sted)}</span>
+      <span class="sp-null" style="left:${x(0)}%"></span></div>
+    <div class="sp-akse"><span>${fmt(min, 0)}°</span><span>0°</span><span>+${max}°</span></div>
+    ${fakta ? `<div class="sp-fakta">${fakta}</div>` : ''}`;
+}
+function tegnUvanlig(){
+  const liste = P.uvanlig || [], kort = $('uvanlig').closest('.card');
+  kort.style.display = liste.length ? '' : 'none';
+  $('uvanlig').innerHTML = liste.map(u => {
+    const kat = KAT[u.type] || KAT.varm;
+    return `<div class="uv"><span class="uv-tag" style="--c:${kat.farge};--fg:${kat.fg}">${esc(u.tag)}</span><p><b>${esc(u.sted)}</b> ${esc(u.tekst)}</p></div>`;
+  }).join('');
+}
+function tegnOppdatert(){
+  if (!P.oppdatert) return;
+  const t = new Date(P.oppdatert);
+  $('oppdatert').textContent = 'Oppdatert ' + t.toLocaleString('nb-NO', { weekday: 'long', hour: '2-digit', minute: '2-digit' }) + '.';
+}
+function del(k){
+  const d = P[periode] && P[periode][k]; if (!d) return;
+  const tekst = delTekst(k, d);
+  if (navigator.share) navigator.share({ text: tekst, url: location.href }).catch(() => {});
+  else if (navigator.clipboard) navigator.clipboard.writeText(tekst).then(() => toast('Kopiert: ' + tekst)).catch(() => toast(tekst));
+  else toast(tekst);
+}
+function toast(t){ const el = document.createElement('div'); el.className = 'toast'; el.textContent = t; document.body.appendChild(el); setTimeout(() => el.remove(), 3200); }
+
+/* Kart: Leaflet fra unpkg, ellers jsDelivr. Uten kart skjules kortet. */
+function ensureLeaflet(){
+  if (window.L) return Promise.resolve(true);
+  const srcs = [['https://unpkg.com/leaflet@1.9.4/dist/leaflet.js', 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'],
+                ['https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js', 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css']];
+  return (async () => { for (const [js, css] of srcs){ try { await new Promise((res, rej) => { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = css; document.head.appendChild(l); const s = document.createElement('script'); s.src = js; s.onload = res; s.onerror = rej; document.head.appendChild(s); setTimeout(rej, 8000); }); if (window.L) return true; } catch(e){} } return false; })();
+}
+let lag = null;
+async function tegnKart(){
+  const ok = await ensureLeaflet();
+  if (!ok){ document.querySelector('.kart-card').style.display = 'none'; document.querySelector('.kgrid').classList.add('uten-kart'); return; }
+  if (!map){
+    map = L.map('kart', { scrollWheelZoom: false, zoomControl: true, attributionControl: true }).setView([65, 15], 4);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 10, className: 'basekart' }).addTo(map);
+  }
+  if (lag) lag.remove();
+  lag = L.layerGroup().addTo(map);
+  const p = P[periode], pts = [];
+  if (!p) return;
+  Object.keys(KAT).forEach(k => {
+    const d = p[k], kat = KAT[k];
+    if (!d) return;
+    const html = `<div class="kp" style="--c:${kat.farge};--fg:${kat.fg}">${ikon(k, 14)}<b>${verdi(k, d.v)}${kat.enhet.trim() === '°' ? '°' : ''}</b></div>`;
+    L.marker([d.lat, d.lon], { icon: L.divIcon({ html, className: 'kp-w', iconSize: [0, 0] }) })
+      .bindTooltip(`<b>${etikett(k, d)}</b><br>${esc(d.sted)}: ${verdi(k, d.v)}${kat.enhet}`).addTo(lag);
+    pts.push([d.lat, d.lon]);
+  });
+  if (pts.length) map.fitBounds(pts, { padding: [30, 30], maxZoom: 6 });
+  setTimeout(() => map.invalidateSize(), 50);
+}
+
+document.querySelectorAll('#periode button').forEach(b => b.onclick = () => {
+  if (!P[b.dataset.p]) return;
+  periode = b.dataset.p; tegnTavle();
+  history.replaceState(null, '', periode === 'sist' ? location.pathname : '#' + periode);
+});
+const fraHash = location.hash.slice(1);
+if (P[fraHash]) periode = fraHash;
+
+/* Lenkene til varselet går til stedet du sist så på. */
+try {
+  const sted = localStorage.getItem('bdf_sted');
+  if (sted && /^\/(ver\/)?varsel\//.test(sted)) document.querySelectorAll('[data-sted]').forEach(a => { a.href = sted + (a.dataset.sted || ''); });
+} catch (e) {}
+
+function tegnAlt(){ tegnTavle(); tegnUvanlig(); tegnOppdatert(); }
+tegnAlt();
+
+/* Henter nye tall i bakgrunnen (koster ingenting: serveren har dem klare). */
+async function frisk(){
+  try {
+    const r = await fetch('/ver/api/klima/norge', { cache: 'no-store' });
+    if (!r.ok) return;
+    const ny = await r.json();
+    if (ny.oppdatert && ny.oppdatert !== P.oppdatert){
+      P = ny;
+      if (!P[periode]) periode = REKKEFOLGE.find(k => P[k]) || periode;
+      tegnAlt();
+    }
+  } catch (e) {}
+}
+setInterval(frisk, REKKEFOLGE.some(k => !P[k]) ? 30000 : 600000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) frisk(); });
+</script>
+</body>
+</html>

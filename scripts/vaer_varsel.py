@@ -1681,7 +1681,41 @@ def varsel_page(sted: str):
     omraade = None if sted in RADAR_AREA or not info.get("norge") else radar_omraade(info["lat"], info["lon"])
     return _frame_headers(make_response(render_template(
         mal, sted=sted, info=vis, places=places, vaersider=VAERSIDER,
-        har_radar=sted in RADAR_AREA, radar_omraade=omraade, forhaand=varsel_payload_forhaand(sted))))
+        har_radar=sted in RADAR_AREA, radar_omraade=omraade, forhaand=varsel_payload_forhaand(sted),
+        klima=_klima_kort())))
+
+
+def _klima_kort() -> Optional[dict[str, Any]]:
+    """Siste døgn for hele landet, til smakebiten i Klima-fanen."""
+    try:
+        from scripts import klima_norge
+
+        p = klima_norge.offentlig().get("sist")
+        if not p:
+            return None
+        return {"tittel": p.get("tittel"), "lead": p.get("lead"),
+                **{k: {"v": float(p[k]["v"]), "sted": str(p[k]["sted"])}
+                   for k in ("varm", "kald", "vaat", "vind") if p.get(k)}}
+    except Exception:  # smakebiten skal aldri velte forsiden
+        return None
+
+
+@vaer_varsel.get("/ver/klima")
+def klima_page():
+    """Norge i tall. Tallene er forhåndsberegnet (scripts/klima_norge.py), så
+    siden svarer uten å vente på Frost eller Yr."""
+    from scripts import klima_norge
+
+    return _frame_headers(make_response(render_template("ver/klima_norge.html", data=klima_norge.offentlig())))
+
+
+@vaer_varsel.get("/ver/api/klima/norge")
+def klima_api():
+    from scripts import klima_norge
+
+    response = jsonify(klima_norge.offentlig())
+    response.headers["Cache-Control"] = "public, max-age=120"
+    return response
 
 
 @vaer_varsel.get("/ver/api/varsel/<sted>")
