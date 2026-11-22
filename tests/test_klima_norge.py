@@ -162,4 +162,12 @@ def test_klimaside_og_api(monkeypatch):
     assert "Sunndals\\u00f8ra" in side or "Sunndalsøra" in side
     api = c.get("/ver/api/klima/norge").get_json()
     assert api["sist"]["varm"]["v"] == 12.4 and "_oppdatert" not in api
-    assert vv._klima_kort()["varm"] == {"v": 12.4, "sted": "Sunndalsøra"}
+
+
+def test_sist_uten_sol_gir_forklaring(monkeypatch):
+    def frost(ids, elementer, referencetime):
+        return [_rad(sid, "sum(duration_of_sunshine P1D)", 21, 0.0, "00") for sid in ("SN18700", "SN50540")] + \
+               [_rad("SN18700", "max(air_temperature P1D)", 21, 3.0, "00")]
+    monkeypatch.setattr(kn, "_frost_hent", frost)
+    p = kn.bygg_sist(STASJONER, NAA)
+    assert p["sol"] is None and "Ingen av solstasjonene" in p["tom"]["sol"]

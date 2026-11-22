@@ -381,6 +381,15 @@ def _fakta(tmin: dict[str, float], tmax: dict[str, float], ned: Optional[dict[st
     return ut
 
 
+def _tom(p: dict[str, Any], k: str, tekst: str, minst: float = 0.05) -> None:
+    """Fjern en rekord som bare er null (f.eks. 0,0 soltimer i mørketida) og
+    forklar i stedet hvorfor kortet er tomt."""
+    d = p.get(k)
+    if d is None or d["v"] < minst:
+        p[k] = None
+        p.setdefault("tom", {})[k] = tekst
+
+
 def _fyll_spenn(p: dict[str, Any]) -> dict[str, Any]:
     if p.get("varm") and p.get("kald"):
         p["spenn"] = round(p["varm"]["v"] - p["kald"]["v"], 1)
@@ -391,13 +400,14 @@ def _fyll_spenn(p: dict[str, Any]) -> dict[str, Any]:
 # Delene
 # ---------------------------------------------------------------------------
 
-def _siste_dato(per_stasjon: dict[str, dict[Any, float]]) -> Optional[date]:
+def _siste_dato(per_stasjon: dict[str, dict[Any, float]], foer: Optional[date] = None) -> Optional[date]:
     """Nyeste dato som har med minst 60 % så mange stasjoner som den
     beste datoen. Unngår at noen få tidlige rapporter blir 'siste døgn'."""
     teller: dict[date, int] = {}
     for serie in per_stasjon.values():
         for d in serie:
-            teller[d] = teller.get(d, 0) + 1
+            if foer is None or d < foer:
+                teller[d] = teller.get(d, 0) + 1
     if not teller:
         return None
     topp = max(teller.values())
@@ -412,9 +422,14 @@ def bygg_sist(stasjoner: list[dict[str, Any]], naa: Optional[datetime] = None) -
     data = _rydd(rader)
     normal = _normaler()
 
+    # Frost viser også døgnet som pågår (maks/min så langt i dag). "Siste
+    # døgn" skal være siste hele døgn, så dagens dato hoppes over. Snødybden
+    # måles én gang om morgenen og er komplett med en gang.
+    i_dag = naa.astimezone(OSLO).date()
+
     def paa_dato(typ: str) -> tuple[Optional[date], dict[str, float]]:
         serie = data.get(typ, {})
-        d = _siste_dato(serie)
+        d = _siste_dato(serie, None if typ == "sno" else i_dag)
         if d is None:
             return None, {}
         return d, {sid: v[d] for sid, v in serie.items() if d in v}
@@ -460,6 +475,8 @@ def bygg_sist(stasjoner: list[dict[str, Any]], naa: Optional[datetime] = None) -
     p["vind"] = _rekord(kast, meta, merk=lambda s, v: _kast_merk(v), kast=True)
     p["sol"] = _rekord(sol, meta, merk=lambda s, v: "Soltimer målt gjennom døgnet.")
     p["sno"] = _rekord(sno, meta, merk=sno_merk, runde=0)
+    _tom(p, "sol", "Ingen av solstasjonene målte sol dette døgnet.")
+    _tom(p, "sno", "Ingen målestasjoner har snø på bakken.", 1)
     antall = len(set(tmax) | set(tmin) | set(ned) | set(kast))
     p["n"] = antall
     p["fakta"] = _fakta(tmin, tmax, ned, "av stasjonene hadde frost", "fikk minst 1 mm nedbør")
@@ -540,6 +557,8 @@ def bygg_mnd(stasjoner: list[dict[str, Any]], naa: Optional[datetime] = None
     p["vind"] = _rekord(verdier("kast"), meta, merk=dato_merk("kast", "Sterkeste kast"), kast=True)
     p["sol"] = _rekord(summer("sol"), meta, merk=lambda s, v: f"Sum soltimer i {mnavn} så langt.", runde=0)
     p["sno"] = _rekord(verdier("sno"), meta, merk=dato_merk("sno", "Største snødybde"), runde=0)
+    _tom(p, "sol", f"Ingen av solstasjonene har målt sol i {mnavn}.")
+    _tom(p, "sno", f"Ingen målestasjoner har hatt snø i {mnavn}.", 1)
     p["n"] = len(set(verdier("tmax")) | set(verdier("nedbor")))
     p["fakta"] = _fakta(verdier("tmin"), verdier("tmax"), None, f"av stasjonene har hatt frost i {mnavn}",
                         varm_tekst=f"stasjoner har hatt over 10° i {mnavn}")
@@ -830,6 +849,8 @@ def bygg_varsel(stasjoner: list[dict[str, Any]], naa: Optional[datetime] = None,
         snoe = {sid: x for sid, x in felt("sno").items() if x >= 1}
         p["sno"] = _rekord(snoe, meta, merk=lambda s, v: "Nysnø, beregnet fra nedbør og temperatur.",
                            runde=0, nysno=True)
+        _tom(p, "sol", "Varselet gir ingen sol noe sted " + ("neste døgn." if neste else "den kommende uken."))
+        _tom(p, "sno", "Ingen nysnø i varselet " + ("neste døgn." if neste else "den kommende uken."), 1)
         p["n"] = len(r)
         p["fakta"] = _fakta(felt("tmin"), felt("tmax"), felt("nedbor"), "av stedene får frost",
                             "får minst 1 mm nedbør", varm_tekst="steder over 10°")
