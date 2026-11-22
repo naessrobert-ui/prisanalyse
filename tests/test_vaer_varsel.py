@@ -132,6 +132,47 @@ def test_days_include_observed_rain_and_google_only_when_covered():
     assert len(days) >= 5
 
 
+def test_dager_har_vindretning_vektet_etter_styrke():
+    # yr_payload har vind fra 150° hele tiden.
+    days = vv.build_days(vv.parse_yr(yr_payload()), [], {}, NOW)
+    assert days[1]["wind_dir"] == 150
+    sterk_sor = [{"wind": 10, "wind_dir": 180}, {"wind": 2, "wind_dir": 0}]
+    assert vv.dominerende_vindretning(sterk_sor) == 180
+    assert vv.dominerende_vindretning([{"wind": 5, "wind_dir": 0}, {"wind": 5, "wind_dir": 180}]) is None  # skiftende
+    assert vv.dominerende_vindretning([{"wind": None, "wind_dir": 90}]) is None
+    # Nord på hver side av 0°: snittet skal bli nord, ikke sør.
+    assert vv.dominerende_vindretning([{"wind": 5, "wind_dir": 350}, {"wind": 5, "wind_dir": 10}]) == 0
+
+
+def test_soltimer_fra_skydekke():
+    def prover(dag, sky, lat=60.39, lon=5.32, timer=30):
+        t0 = datetime(*dag, tzinfo=timezone.utc) - timedelta(hours=3)
+        return [(t0 + timedelta(hours=i), sky) for i in range(timer)]
+
+    sommer = vv.soltimer(prover((2026, 6, 21), 0), 60.39, 5.32)["2026-06-21"]
+    assert 17 < sommer < 19  # Bergen ved sankthans
+    klart = vv.soltimer(prover((2026, 11, 22), 0), 60.39, 5.32)["2026-11-22"]
+    halvt = vv.soltimer(prover((2026, 11, 22), 50), 60.39, 5.32)["2026-11-22"]
+    assert 5 < klart < 7 and abs(halvt - klart / 2) < 0.2
+    assert vv.soltimer(prover((2026, 11, 22), 100), 60.39, 5.32)["2026-11-22"] == 0
+    assert vv.soltimer(prover((2026, 12, 15), 0, 69.65, 18.96), 69.65, 18.96)["2026-12-15"] == 0  # mørketid
+    # Varselet starter midt på dagen: dagen er ikke dekket og utelates.
+    sent = [(datetime(2026, 11, 22, 12, tzinfo=timezone.utc) + timedelta(hours=i), 0) for i in range(30)]
+    assert "2026-11-22" not in vv.soltimer(sent, 60.39, 5.32)
+    assert vv.soltimer([], 60.39, 5.32) == {}
+
+
+def test_varsel_api_har_soltimer_og_vindretning():
+    client = _app()
+    with patch.object(vv, "_fetch_yr", return_value=yr_payload()), \
+         patch.object(vv, "_fetch_nowcast", side_effect=RuntimeError), \
+         patch.object(vv, "_fetch_google", side_effect=RuntimeError), \
+         patch.object(vv, "_fetch_observations", side_effect=RuntimeError), \
+         patch.object(vv, "_trust_rows", return_value=None), _fast_tid("build_payload"):
+        days = client.get("/ver/api/varsel/bergen").json["days"]
+    assert days[1]["wind_dir"] == 150 and "sol_timer" in days[1]
+
+
 def test_agreement_texts():
     rows = vv.parse_yr(yr_payload({15: 1.0, 16: 3.0, 17: 3.0}))
     same = vv.agreement(vv.build_hours(rows, google({13: 1.0, 16: 3.0, 17: 2.8}), START))
