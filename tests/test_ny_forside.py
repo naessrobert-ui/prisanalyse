@@ -73,7 +73,19 @@ def test_parse_farevarsel_alvorligste_forst_og_taaler_mangler():
     assert [x["farge"] for x in v] == ["orange", "yellow"]
     assert v[0]["tittel"] == "Jordskredfare Vestland" and v[0]["slutt"] is None
     assert v[1]["rad"] == "Sikre løse gjenstander." and v[1]["slutt"].startswith("2026-11-21T18")
+    assert v[1]["start"].startswith("2026-11-21T06") and v[0]["start"] is None
     assert vv.parse_farevarsel({}) == []
+
+
+def test_farevarsel_tittel_uten_raa_tidsstempler():
+    # Slik MET faktisk sender tittelen (Tromsø, 22.11.2026).
+    payload = {"features": [{"properties": {
+        "title": "Is, gult nivå, Deler av Troms og Finnmark, 2026-11-23T14:00:00+00:00, 2026-11-23T23:00:00+00:00",
+        "awareness_level": "2; yellow; Moderate"},
+        "when": {"interval": ["2026-11-23T14:00:00+00:00", "2026-11-23T23:00:00+00:00"]}}]}
+    v = vv.parse_farevarsel(payload)[0]
+    assert v["tittel"] == "Is, gult nivå, Deler av Troms og Finnmark"
+    assert v["start"] == "2026-11-23T14:00:00+00:00" and v["slutt"] == "2026-11-23T23:00:00+00:00"
 
 
 def test_farevarsel_api_feiler_aldri_synlig():

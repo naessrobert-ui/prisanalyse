@@ -2025,6 +2025,9 @@ def _farge(props: dict[str, Any]) -> str:
     return "yellow"
 
 
+_ISO_I_TITTEL = re.compile(r",?\s*\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?")
+
+
 def parse_farevarsel(payload: dict[str, Any]) -> list[dict[str, Any]]:
     """Aktive farevarsler, alvorligste først. Tåler at felter mangler."""
     rang = {"red": 0, "orange": 1, "yellow": 2}
@@ -2036,11 +2039,14 @@ def parse_farevarsel(payload: dict[str, Any]) -> list[dict[str, Any]]:
         intervall = ((f.get("when") or {}).get("interval") or [None, None])
         tittel = props.get("title") or " ".join(
             x for x in (props.get("eventAwarenessName"), props.get("area")) if x) or "Farevarsel"
+        # MET legger start og slutt som rå ISO-tider bak i tittelen; tidsrommet vises for seg.
+        tittel = _ISO_I_TITTEL.sub("", tittel).strip(" ,") or "Farevarsel"
         ut.append({
             "farge": _farge(props),
             "tittel": tittel,
             "beskrivelse": props.get("description") or "",
             "rad": props.get("instruction") or "",
+            "start": intervall[0] if intervall else None,
             "slutt": intervall[1] if len(intervall) > 1 else None,
         })
     return sorted(ut, key=lambda v: rang[v["farge"]])
