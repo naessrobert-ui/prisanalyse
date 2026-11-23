@@ -49,6 +49,9 @@ _KOLONNER = ["rr", "tmid", "tmin", "tmax"]
 _LAAS = threading.RLock()
 _DATA: dict[str, pd.DataFrame] = {}
 _SIST_FORSOK: dict[str, float] = {}
+_LASTET: dict[str, float] = {}
+_STATUS: dict[str, dict[str, Any]] = {}
+LES_PAA_NYTT = 600
 _JOBB = threading.Lock()
 _STARTET = False
 OPPDATER_HVERT = int(os.getenv("HISTORIKK_OPPDATER_SEK", "3600"))
@@ -116,11 +119,18 @@ def hent(serie: str) -> pd.DataFrame:
     hvis siste dag er gammel, uten å vente på den."""
     with _LAAS:
         df = _DATA.get(serie)
-    if df is None:
+        gammel = time.time() - _LASTET.get(serie, 0) > LES_PAA_NYTT
+    if df is None or gammel:
+        # Flere prosesser deler samme lagrede serie. Den som oppdaterer lagrer,
+        # de andre leser den inn igjen her (høyst hvert tiende minutt).
         lagret = _les_lagret(serie)
-        df = lagret if lagret is not None and len(lagret) else _les_seed(serie)
+        if lagret is not None and len(lagret) and (df is None or lagret.index.max() >= df.index.max()):
+            df = lagret
+        elif df is None:
+            df = _les_seed(serie)
         with _LAAS:
             _DATA[serie] = df
+            _LASTET[serie] = time.time()
     if _trenger_oppdatering(serie, df):
         threading.Thread(target=oppdater, args=(serie,), daemon=True, name=f"historikk-{serie}").start()
     return df
@@ -184,30 +194,40 @@ def oppdater(serie: str) -> Optional[pd.DataFrame]:
         cfg = SERIER[serie]
         stasjon = cfg["kjede"][-1][0]
         i_dag = datetime.now(timezone.utc).date()
-        endret = False
+
+        def publiser(hva: str) -> None:
+            with _LAAS:
+                _DATA[serie] = df.copy()
+                _LASTET[serie] = time.time()
+            try:
+                _lagre(serie, df)
+                _STATUS[serie]["lagret"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+            except Exception as exc:
+                _STATUS[serie]["feil"] = f"lagring: {exc}"
+                log.warning("historikk: lagring feilet: %s", exc)
+            _STATUS[serie]["steg"] = hva
+
+        _STATUS[serie] = {"startet": datetime.now(timezone.utc).isoformat(timespec="seconds"), "feil": None}
 
         # 1) Nye dager med nedbør og temperatur for stasjonen som er i drift.
+        #    Lagres med en gang, så brukerne får dem før den lange jobben under.
         siste = df.index.max().date()
         if siste < i_dag - timedelta(days=1):
             fra = siste - timedelta(days=30)
             rader = _frost(stasjon, ["sum(precipitation_amount P1D)", "mean(air_temperature P1D)",
                                      "min(air_temperature P1D)", "max(air_temperature P1D)"], fra, i_dag)
-            endret |= _flett_inn(df, rader, stasjon, i_dag) > 0
+            _STATUS[serie]["frost_rader"] = len(rader)
+            if _flett_inn(df, rader, stasjon, i_dag):
+                publiser("nye dager")
 
         # 2) Temperatur bakover, ti år om gangen, for hele stasjonskjeden.
         if df["tmid"].notna().sum() < len(df) * 0.5:
-            endret |= _fyll_temperatur(df, cfg, i_dag) > 0
-
-        if endret:
-            df = df.sort_index()
-            with _LAAS:
-                _DATA[serie] = df
-            try:
-                _lagre(serie, df)
-            except Exception as exc:
-                log.warning("historikk: lagring feilet: %s", exc)
+            if _fyll_temperatur(df, cfg, i_dag, lambda: publiser("temperatur")):
+                publiser("temperatur ferdig")
+        _STATUS[serie]["ferdig"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
         return df
-    except Exception:
+    except Exception as exc:
+        _STATUS.setdefault(serie, {})["feil"] = f"{type(exc).__name__}: {exc}"
         log.exception("historikk: oppdatering av %s feilet", serie)
         return None
     finally:
@@ -244,12 +264,18 @@ def _flett_inn(df: pd.DataFrame, rader: list[dict[str, Any]], stasjon: str, i_da
             if pd.isna(df.at[ts, k]):
                 df.at[ts, k] = round(v, 1)
                 nye += 1
+    if nye:
+        # Nye rader havner bakerst. Uten sortering feiler datoutsnitt senere.
+        df.sort_index(inplace=True)
     return nye
 
 
-def _fyll_temperatur(df: pd.DataFrame, cfg: dict[str, Any], i_dag: date) -> int:
+def _fyll_temperatur(df: pd.DataFrame, cfg: dict[str, Any], i_dag: date,
+                     underveis: Optional[Any] = None) -> int:
     nye = 0
     for stasjon, fra_s, til_s in cfg["kjede"]:
+        if nye and underveis:
+            underveis()  # lagre det vi har etter hver stasjon
         fra = date.fromisoformat(fra_s)
         til = date.fromisoformat(til_s) if til_s else i_dag
         start = fra
@@ -406,6 +432,16 @@ def info(serie: str) -> dict[str, Any]:
             "til": df.index.max().date().isoformat(),
             "temp_fra": t.index.min().date().isoformat() if len(t) else None,
             "stasjoner": [{"id": s, "navn": cfg["stasjonsnavn"].get(s, s), "fra": a, "til": b} for s, a, b in cfg["kjede"]]}
+
+
+def status(serie: str) -> dict[str, Any]:
+    """Til feilsøking: hva serien inneholder og hvordan siste oppdatering gikk."""
+    df = hent(serie)
+    return {**info(serie), "rader": int(len(df)), "temp_dager": int(df["tmid"].notna().sum()),
+            "frost_konfigurert": bool(os.getenv("FROST_CLIENT_ID")), "s3": _s3() is not None,
+            "siste_forsok": datetime.fromtimestamp(_SIST_FORSOK[serie], timezone.utc).isoformat(timespec="seconds")
+            if serie in _SIST_FORSOK else None,
+            "oppdatering": _STATUS.get(serie)}
 
 
 def start_warmup() -> None:

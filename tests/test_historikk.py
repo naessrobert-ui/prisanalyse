@@ -105,3 +105,34 @@ def test_ruter(monkeypatch):
     assert r["periode"]["tekst"] == "15. oktober til 15. november" and r["periode"]["grense"] == 1.0
     assert c.get("/ver/historikk/bergen").status_code == 200
     assert c.get("/ver/historikk/oslo").status_code == 404
+
+
+def test_oppdater_henter_nye_dager_og_temperatur(monkeypatch):
+    """Regresjon: nye rader ble lagt bakerst uten sortering, så neste
+    datoutsnitt feilet og ingenting ble lagret."""
+    from datetime import timedelta
+
+    base = _df("2026-02-12")
+    base[["tmid", "tmin", "tmax"]] = np.nan
+    base = base.loc["2024-01-01":]
+    lagret = {}
+    monkeypatch.setitem(h.SERIER["bergen"], "kjede", [("SN50540", "2024-01-01", None)])
+    monkeypatch.setattr(h, "_les_lagret", lambda serie: None)
+    monkeypatch.setattr(h, "_les_seed", lambda serie: base.copy())
+    monkeypatch.setattr(h, "_lagre", lambda serie, df: lagret.__setitem__(serie, df.copy()))
+    monkeypatch.setattr(h, "_DATA", {})
+
+    def frost(stasjon, elementer, fra, til):
+        ut, d = [], fra
+        while d <= til:
+            for el in elementer:
+                tid = "06" if "precip" in el else "00"
+                ut.append({"el": el, "t": d.strftime(f"%Y-%m-%dT{tid}:00:00.000Z"), "v": 1.0 if "precip" in el else 4.0})
+            d += timedelta(days=1)
+        return ut
+    monkeypatch.setattr(h, "_frost", frost)
+    df = h.oppdater("bergen")
+    assert df is not None and df.index.is_monotonic_increasing
+    assert df.index.max().date() >= date.today() - timedelta(days=2)
+    assert df["tmid"].notna().sum() > 900
+    assert "bergen" in lagret and h._STATUS["bergen"]["feil"] is None
