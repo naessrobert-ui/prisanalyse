@@ -1865,6 +1865,17 @@ def historikk_page(serie: str):
         "ver/historikk.html", info=historikk.info(serie), resultat=resultat)))
 
 
+@vaer_varsel.get("/ver/api/historikk/<serie>/status")
+def historikk_status(serie: str):
+    from scripts import historikk
+
+    if serie not in historikk.SERIER:
+        abort(404)
+    response = jsonify(historikk.status(serie))
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 @vaer_varsel.get("/ver/api/historikk/<serie>")
 def historikk_api(serie: str):
     response = jsonify(_historikk_resultat(serie))
