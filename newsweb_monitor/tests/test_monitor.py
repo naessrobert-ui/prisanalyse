@@ -27,6 +27,24 @@ class TestMonitor(unittest.TestCase):
     def test_rule_method(self):
         self.assertEqual(m.rules(self.sample())["assessment_source"],"REGLER – ikke AI")
 
+    def test_ai_failure_falls_back_to_rules(self):
+        import shutil
+        sample_dir=m.ROOT/"sample"
+        with TemporaryDirectory() as tmp, \
+             patch.object(m,"ROOT",Path(tmp)), \
+             patch.object(m,"ai",side_effect=RuntimeError("429 insufficient_quota")), \
+             patch.dict(os.environ,{"SOURCE_MODE":"demo","OPENAI_API_KEY":"x",
+                                    "INDIRECT_NEWS":"false","VALID_MARKETS":"XOSL"}):
+            shutil.copytree(sample_dir,Path(tmp)/"sample")
+            m.main()
+            report=json.loads((Path(tmp)/"reports"/"latest.json").read_text(encoding="utf-8"))
+        kept=[x for x in report["items"] if not x.get("skipped")]
+        self.assertTrue(kept)
+        self.assertTrue(all(x.get("ai_fallback") for x in kept))
+        self.assertTrue(all(x["assessment_source"].startswith("REGLER") for x in kept))
+        self.assertEqual(report["diagnostics"]["ai_failed"],len(kept))
+        self.assertEqual(report["diagnostics"]["analyzed"],0)
+
 if __name__=="__main__":
     unittest.main()
 

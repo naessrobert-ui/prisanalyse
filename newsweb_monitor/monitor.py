@@ -418,13 +418,20 @@ def main() -> int:
                 stats["details_failed"]+=1
                 continue
         key=os.getenv("OPENAI_API_KEY","")
+        ai_fallback=False
         try:
             assessment=ai(item,key) if key else rules(item)
         except Exception as exc:
+            # Publiser med regelvurdering i stedet for å la siden stå fast.
+            # Meldingen merkes ikke som sett, så neste kjøring prøver AI igjen
+            # og erstatter regelvurderingen (publish_site fletter på id).
             print(f"AI-feil for {item['id']}: {exc}",file=sys.stderr)
             stats["ai_failed"]+=1
-            continue # Neste kjøring prøver igjen.
+            ai_fallback=True
+            assessment={**rules(item),"assessment_source":"REGLER – AI feilet, prøves igjen"}
         entry={**item,**assessment,"skipped":False}
+        if ai_fallback:
+            entry["ai_fallback"]=True
         if assessment.get("assessment_source")=="AI":
             from .importance import apply as weight_important
             weight_important(entry)
@@ -444,7 +451,7 @@ def main() -> int:
             entry.update(message_fingerprint(item))
             entry.pop("attachments",None)
             entry["body"]=entry.get("body","")[:900]
-        can_notify=(mode in ("live","newsweb") and bool(key) and not restart and
+        can_notify=(mode in ("live","newsweb") and bool(key) and not restart and not ai_fallback and
             flag("NOTIFICATIONS_ENABLED") and not flag("DRY_RUN",True) and
             entry["score"]>=int(os.getenv("NOTIFY_SCORE","75")))
         if can_notify:
@@ -459,6 +466,8 @@ def main() -> int:
         else:
             entry["notification"]="Av" if mode in ("live","newsweb") else "DEMO – ingen varsler"
         entries.append(entry)
+        if ai_fallback:
+            continue # Ikke "sett": neste kjøring prøver AI på nytt.
         stats["analyzed"]+=1
         if mode in ("live","newsweb"):
             seen[item["id"]]=now.isoformat()
