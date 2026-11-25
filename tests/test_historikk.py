@@ -181,3 +181,35 @@ def test_prognose_bruker_varsel_og_normal_for_resten():
 
 def test_ingen_prognose_for_avsluttet_periode():
     assert h.prognose(_df(), (10, 1), (10, 31), {}) is None
+
+
+def test_varsel_dager_nedbor_teller_ikke_samme_time_to_ganger():
+    def p(t, n1=None, n6=None):
+        data = {"instant": {"details": {"air_temperature": 1.0}}}
+        if n1 is not None:
+            data["next_1_hours"] = {"details": {"precipitation_amount": n1}}
+        if n6 is not None:
+            data["next_6_hours"] = {"details": {"precipitation_amount": n6}}
+        return {"time": t, "data": data}
+    # Timeverdier 00-05 UTC (1 mm hver), deretter 6-timersblokker. 6-timersverdien
+    # fra 00 UTC overlapper timeverdiene og skal ikke telles.
+    ts = [p(f"2026-11-26T{h:02d}:00:00Z", n1=1.0, n6=99.0 if h == 0 else None) for h in range(6)]
+    ts += [p("2026-11-26T06:00:00Z", n6=3.0), p("2026-11-26T12:00:00Z", n6=2.0)]
+    d = h.varsel_dager(ts, min_punkter=1)
+    # 00 UTC = 01 lokal tid, så alt havner 26. november.
+    assert d[date(2026, 11, 26)]["rr"] == 11.0
+
+
+def test_prognose_nedbor_med_varsel_og_normal():
+    df = _df()  # 1 mm hver dag
+    df.loc[df.index.day % 2 == 0, "rr"] = 0.0      # annenhver dag tørr i alle år
+    df.loc["2026-11-01":"2026-11-22", "rr"] = 0.0  # tørr november så langt
+    varsel = {date(2026, 11, d): {"tmid": 1.0, "tmin": 0.0, "tmax": 2.0, "rr": 10.0} for d in (23, 24, 25)}
+    p = h.prognose(df, (11, 1), (11, 30), varsel, grense=0.1)
+    n = p["nedbor"]
+    # 3 × 10 mm fra varselet; 26.–30. fra normalen: 26, 28, 30 tørre, 27 og 29 1 mm.
+    assert n["verdi"] == 32.0
+    assert n["regndager"] == 5
+    assert [x["rr"] for x in p["dager"]] == [10.0, 10.0, 10.0, 0.0, 1.0, 0.0, 1.0, 0.0]
+    assert n["rang_vaat"] == 1 and n["normal"] == 15.0  # andre år: 15 dager à 1 mm
+    assert p["temperatur"]["verdi"] is not None
