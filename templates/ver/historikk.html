@@ -535,6 +535,11 @@ body.laster main{opacity:.55;transition:opacity .2s}
 .liste li.naa{background:#fff2cc;font-weight:700}
 @media (prefers-color-scheme:dark){.liste li.naa{background:#4a3b10}}
 .kilde{font-size:.8rem;color:var(--muted)}
+.prog-dager{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:6px;margin-top:14px}
+.prog-dag{background:var(--soft);border-radius:12px;padding:8px 10px;font-size:.8rem;line-height:1.35}
+.prog-dag b{display:block;font-size:1.05rem;font-weight:700}
+.prog-dag span{color:var(--muted)}
+.prog-dag.normal{background:none;border:1px dashed var(--line)}
 @media (max-width:760px){.svar{grid-template-columns:1fr}.lister{grid-template-columns:1fr 1fr}.svar-hoved .tall{font-size:2.4rem}}
 @media (max-width:480px){.lister{grid-template-columns:1fr}}
 </style>
@@ -589,6 +594,15 @@ body.laster main{opacity:.55;transition:opacity .2s}
     </div>
   </div>
 
+  <div class="card" id="progkort" style="display:none">
+    <h2><span class="h-l" id="progtittel">Forventet</span><span class="muted small">målt + varsel</span></h2>
+    <div class="svar">
+      <div class="svar-hoved"><div class="tall" id="progtall"></div><p class="setning" id="progsetning"></p></div>
+      <div class="kpis" id="progkpis"></div>
+    </div>
+    <div class="prog-dager" id="progdager"></div>
+    <p class="kilde" id="progkilde"></p>
+  </div>
   <div class="card">
     <h2><span class="h-l" id="graftittel">Alle årene</span><span class="muted small">hold over en søyle</span></h2>
     <div class="graf" id="graf"><div class="tip" id="tip"></div></div>
@@ -681,11 +695,38 @@ function tegn(){
     $('setning').innerHTML = t.verdi == null ? 'Mangler temperatur for i år.' :
       `Snittemperatur. ${t.rang_varm <= t.antall_aar / 2 ? `Den ${t.rang_varm === 1 ? '<b>varmeste</b>' : `<b>${t.rang_varm}. varmeste</b>`}` : `Den ${t.antall_aar - t.rang_varm + 1 === 1 ? '<b>kaldeste</b>' : `<b>${t.antall_aar - t.rang_varm + 1}. kaldeste</b>`}`} av ${t.antall_aar} år siden ${t.fra_aar}${avv != null ? `, ${avv >= 0 ? '+' : ''}${fmt(avv)}° mot normalen` : ''}.`;
     $('kpis').innerHTML = kpi('Snitt alle år', `${fmt(t.snitt)}°`) + kpi('Normal 1991–2020', `${fmt(t.normal)}°`)
+      + kpi('Snitt maks / min', `${fmt(t.maks_snitt)}° / ${fmt(t.min_snitt)}°`, `normalt ${fmt(t.normal_maks)}° / ${fmt(t.normal_min)}°`)
+      + kpi(`Høyeste / laveste ${R.i_aar}`, `${fmt(t.hoyeste)}° / ${fmt(t.laveste)}°`)
       + kpi('Varmeste dag', t.varmeste_dag.length ? `${fmt(t.varmeste_dag[0][1])}°` : '–', t.varmeste_dag.length ? datoTekst(t.varmeste_dag[0][0]) : '')
       + kpi('Kaldeste dag', t.kaldeste_dag.length ? `${fmt(t.kaldeste_dag[0][1])}°` : '–', t.kaldeste_dag.length ? datoTekst(t.kaldeste_dag[0][0]) : '');
   }
-  tegnGraf(); tegnLister();
+  tegnPrognose(); tegnGraf(); tegnLister();
   $('kilde').textContent = `Siste dag med data: ${datoTekst(R.siste_dag)}. Nedbør fra ${INFO.fra.slice(0, 4)}${INFO.temp_fra ? `, temperatur fra ${INFO.temp_fra.slice(0, 4)}` : ''}. År med mer enn 10 % manglende dager er utelatt.`;
+}
+const rangTekst = (rang, antall) => rang <= antall / 2
+  ? `Den ${rang === 1 ? '<b>varmeste</b>' : `<b>${rang}. varmeste</b>`}`
+  : `Den ${antall - rang + 1 === 1 ? '<b>kaldeste</b>' : `<b>${antall - rang + 1}. kaldeste</b>`}`;
+const kortDato = iso => { const d = new Date(iso + 'T12:00:00Z'); return `${d.getUTCDate()}. ${MAANL[d.getUTCMonth()]}`; };
+function tegnPrognose(){
+  const P = R.prognose, vis = V === 't' && P && P.temperatur && P.temperatur.verdi != null;
+  $('progkort').style.display = vis ? '' : 'none';
+  if (!vis) return;
+  const t = P.temperatur, avv = t.normal != null ? t.verdi - t.normal : null;
+  $('progtittel').textContent = `Forventet ved ${kortDato(P.til)}`;
+  $('progtall').innerHTML = `${fmt(t.verdi)}<span>°</span>`;
+  $('progsetning').innerHTML = `Forventet snittemperatur for ${P.tekst}. ${rangTekst(t.rang_varm, t.antall_aar)} av ${t.antall_aar} år${avv != null ? `, ${avv >= 0 ? '+' : ''}${fmt(avv)}° mot normalen` : ''}.`
+    + ` <span class="muted">Sammenlignet med hele perioden hvert år.</span>`;
+  $('progkpis').innerHTML = kpi('Normal 1991–2020', `${fmt(t.normal)}°`)
+    + kpi('Snitt maks / min', `${fmt(t.maks_snitt)}° / ${fmt(t.min_snitt)}°`, `normalt ${fmt(t.normal_maks)}° / ${fmt(t.normal_min)}°`)
+    + kpi('Høyeste / laveste', `${fmt(t.hoyeste)}° / ${fmt(t.laveste)}°`)
+    + kpi('Varmeste / kaldeste år', t.varmeste.length ? `${fmt(t.varmeste[0][1])}° / ${fmt(t.kaldeste[0][1])}°` : '–', t.varmeste.length ? `${t.varmeste[0][0]} / ${t.kaldeste[0][0]}` : '');
+  const visDager = P.dager.length <= 14;
+  $('progdager').innerHTML = !visDager ? '' : P.dager.map(d => `<div class="prog-dag ${d.kilde}" title="${d.kilde === 'varsel' ? 'Varsel fra YR' : 'Normal for datoen'}"><span>${(x => `${x.getUTCDate()}. ${MAAN[x.getUTCMonth()]}`)(new Date(d.dato + 'T12:00:00Z'))}${d.kilde === 'normal' ? ' · normal' : ''}</span><b>${fmt(d.tmid)}°</b><span>${fmt(d.tmax)}° / ${fmt(d.tmin)}°</span></div>`).join('');
+  const deler = [`Målt til og med ${kortDato(P.maalt_til)}`];
+  if (P.dager_varsel) deler.push(`${P.dager_varsel} ${P.dager_varsel === 1 ? 'dag' : 'dager'} med varsel fra YR (MET Norway)`);
+  if (P.dager_normal) deler.push(`${P.dager_normal} ${P.dager_normal === 1 ? 'dag' : 'dager'} med normalen for datoen (1991–2020)`);
+  $('progkilde').textContent = deler.join(', ') + '. Varselet er for punktet, ikke stasjonen, og døgnsnittet regnes av varselets timeverdier.'
+    + (visDager ? ' Hver dag: snitt, maks / min.' : '');
 }
 function dagerTekst(p){ const [m, d] = p.brukt_til.split('-').map(Number); return `dagene til og med ${d}. ${MAANL[m - 1]}`; }
 const kpi = (l, v, s = '') => `<div class="kpi"><span>${l}</span><b>${v}</b>${s ? `<small>${s}</small>` : ''}</div>`;

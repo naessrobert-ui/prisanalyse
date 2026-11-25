@@ -136,3 +136,48 @@ def test_oppdater_henter_nye_dager_og_temperatur(monkeypatch):
     assert df.index.max().date() >= date.today() - timedelta(days=2)
     assert df["tmid"].notna().sum() > 900
     assert "bergen" in lagret and h._STATUS["bergen"]["feil"] is None
+
+
+def test_maks_og_min_snitt_i_temperatur():
+    df = _df()
+    df.loc["2026-11-01":"2026-11-22", "tmax"] = 8.0
+    df.loc["2026-11-03", "tmin"] = -4.0
+    r = h.beregn(df, (11, 1), (11, 30))
+    t = r["temperatur"]
+    assert t["maks_snitt"] == 8.0 and t["normal_maks"] == 10.0
+    assert t["min_snitt"] == round(-4.0 / 22, 1) and t["normal_min"] == 0.0
+    assert t["hoyeste"] == 8.0 and t["laveste"] == -4.0
+
+
+def test_varsel_dager_fra_yr():
+    ts = []
+    for time, temp in [(0, 1.0), (6, 3.0), (12, 5.0), (18, 3.0), (23, 2.0)]:
+        ts.append({"time": f"2026-11-26T{time:02d}:00:00Z",
+                   "data": {"instant": {"details": {"air_temperature": temp}},
+                            "next_6_hours": {"details": {"air_temperature_max": temp + 1,
+                                                         "air_temperature_min": temp - 1}}}})
+    d = h.varsel_dager(ts)
+    # 23Z er 00 lokal tid neste dag, som da bare har ett punkt og utelates.
+    assert list(d) == [date(2026, 11, 26)]
+    v = d[date(2026, 11, 26)]
+    assert v["tmid"] == 3.0 and v["tmax"] == 6.0 and v["tmin"] == 0.0
+
+
+def test_prognose_bruker_varsel_og_normal_for_resten():
+    df = _df()  # målt til 22. november, 5° hver dag
+    df.loc["2026-11-01":"2026-11-22", "tmid"] = 2.0
+    df.loc["2026-11-10", "tmin"] = -6.0
+    varsel = {date(2026, 11, d): {"tmid": -3.0, "tmin": -8.0, "tmax": 1.0} for d in (23, 24, 25)}
+    p = h.prognose(df, (11, 1), (11, 30), varsel)
+    assert p["til"] == "2026-11-30" and p["maalt_til"] == "2026-11-22"
+    assert p["dager_varsel"] == 3 and p["dager_normal"] == 5
+    assert [x["kilde"] for x in p["dager"]][:4] == ["varsel"] * 3 + ["normal"]
+    t = p["temperatur"]
+    assert t["verdi"] == round((22 * 2.0 + 3 * -3.0 + 5 * 5.0) / 30, 1)
+    assert t["laveste"] == -8.0 and t["hoyeste"] == 10.0
+    assert t["rang_varm"] == t["antall_aar"]  # kaldeste
+    assert t["normal"] == 5.0
+
+
+def test_ingen_prognose_for_avsluttet_periode():
+    assert h.prognose(_df(), (10, 1), (10, 31), {}) is None
