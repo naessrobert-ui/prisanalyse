@@ -369,6 +369,18 @@ def beregn(df: pd.DataFrame, fra: tuple[int, int], til: tuple[int, int], *, gren
             return None
         return int((s > s[aar_naa]).sum() + 1) if synkende else int((s < s[aar_naa]).sum() + 1)
 
+    def sist(kol: str, ok: pd.Series, hoyere: bool) -> Optional[list[Any]]:
+        """Siste år før i år med høyere (eller lavere) verdi enn i år."""
+        s = tab.loc[ok, kol].dropna()
+        if aar_naa not in s.index:
+            return None
+        v, tidligere = s[aar_naa], s[s.index < aar_naa]
+        treff = tidligere[tidligere > v] if hoyere else tidligere[tidligere < v]
+        if not len(treff):
+            return None
+        a = int(treff.index.max())
+        return [a, round(float(treff[a]), 1)]
+
     def topp(kol: str, ok: pd.Series, synkende: bool, n: int = 10) -> list[list[Any]]:
         s = tab.loc[ok, kol].dropna().sort_values(ascending=not synkende).head(n)
         return [[int(a), round(float(v), 1)] for a, v in s.items()]
@@ -415,11 +427,13 @@ def beregn(df: pd.DataFrame, fra: tuple[int, int], til: tuple[int, int], *, gren
             "vaateste": topp("rr", ok_rr, True), "torreste": topp("rr", ok_rr, False),
             "flest_regndager": topp("regndager", ok_rr, True), "faerrest_regndager": topp("regndager", ok_rr, False),
             "dognrekord": dognrekord,
+            "sist_vaatere": sist("rr", ok_rr, True), "sist_torrere": sist("rr", ok_rr, False),
             "fra_aar": int(tab.index[ok_rr].min()) if ok_rr.any() else None,
         },
         "temperatur": None if not ok_t.any() else {
             "verdi": i_aar.get("tmid"),
             "rang_varm": rang("tmid", ok_t, True), "antall_aar": int(ok_t.sum()),
+            "sist_varmere": sist("tmid", ok_t, True), "sist_kaldere": sist("tmid", ok_t, False),
             "snitt": snitt("tmid", ok_t), "normal": snitt("tmid", ok_t, nf, nt),
             # Snitt av døgnenes maks/min, og årets høyeste/laveste i perioden.
             "maks_snitt": i_aar.get("tmax_snitt"), "min_snitt": i_aar.get("tmin_snitt"),
@@ -533,13 +547,14 @@ def prognose(df: pd.DataFrame, fra: tuple[int, int], til: tuple[int, int],
         "dager_normal": sum(1 for x in dager if x["kilde"] == "normal"),
         "dager": dager,
         "nedbor": {**{k: nn[k] for k in ("verdi", "rang_vaat", "antall_aar", "snitt", "normal",
-                                         "normal_regndager", "vaateste", "torreste")},
+                                         "normal_regndager", "vaateste", "torreste",
+                                         "sist_vaatere", "sist_torrere")},
                    # Normaldager teller med sannsynligheten for regndag, ikke snittmengden.
                    "regndager": int(round(nn["regndager"] - normal_regndager + sjanse_regndag))},
         "temperatur": None if tt is None or tt["verdi"] is None else {
             k: tt[k] for k in ("verdi", "rang_varm", "antall_aar", "snitt", "normal", "maks_snitt",
                                "min_snitt", "normal_maks", "normal_min", "hoyeste", "laveste",
-                               "varmeste", "kaldeste")},
+                               "varmeste", "kaldeste", "sist_varmere", "sist_kaldere")},
     }
 
 
