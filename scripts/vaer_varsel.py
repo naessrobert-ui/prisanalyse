@@ -1848,7 +1848,32 @@ def _historikk_resultat(serie: str) -> dict[str, Any]:
     a = _historikk_args(serie)
     df = historikk.hent(serie)
     key = f"historikk:{serie}:{len(df)}:{df.index.max().date()}:{df['tmid'].count()}:{a['fra']}:{a['til']}:{a['grense']}"
-    return _CACHE.get(key, 3600, lambda: historikk.beregn(df, a["fra"], a["til"], grense=a["grense"]))
+    resultat = _CACHE.get(key, 3600, lambda: historikk.beregn(df, a["fra"], a["til"], grense=a["grense"]))
+    if not resultat["periode"]["pagaar"] or resultat["temperatur"] is None:
+        return resultat
+    return {**resultat, "prognose": _historikk_prognose(serie, df, a, key)}
+
+
+def _historikk_prognose(serie: str, df: Any, a: dict[str, Any], key: str) -> Optional[dict[str, Any]]:
+    """Forventet temperatur ved periodens slutt, med YR-varselet for stedet.
+    Feiler varselet, vises siden som før, uten prognose."""
+    from scripts import historikk
+
+    cfg = historikk.SERIER[serie]
+
+    def hent_varsel() -> dict[Any, dict[str, float]]:
+        from yr_forecast import _fetch_yr_timeseries
+
+        with requests.Session() as s:
+            return historikk.varsel_dager(_fetch_yr_timeseries(cfg["lat"], cfg["lon"], s, timeout=8))
+
+    try:
+        varsel = _CACHE.get(f"historikk-varsel:{serie}", 3600, hent_varsel)
+        dager = ",".join(f"{d}:{v['tmid']:.1f}" for d, v in sorted(varsel.items()))
+        return _CACHE.get(f"{key}:prognose:{hash(dager)}", 3600,
+                          lambda: historikk.prognose(df, a["fra"], a["til"], varsel))
+    except Exception:
+        return None
 
 
 @vaer_varsel.get("/ver/historikk")

@@ -20,6 +20,7 @@ import time
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Optional
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
@@ -350,7 +351,8 @@ def beregn(df: pd.DataFrame, fra: tuple[int, int], til: tuple[int, int], *, gren
         rr = bit["rr"].dropna()
         rader.append({"aar": aar, "dager": dager, "n_rr": len(rr), "rr": rr.sum() if len(rr) else np.nan,
                       "regndager": int((rr >= grense).sum()), "n_t": int(bit["tmid"].notna().sum()),
-                      "tmid": bit["tmid"].mean(), "tmax": bit["tmax"].max(), "tmin": bit["tmin"].min()})
+                      "tmid": bit["tmid"].mean(), "tmax": bit["tmax"].max(), "tmin": bit["tmin"].min(),
+                      "tmax_snitt": bit["tmax"].mean(), "tmin_snitt": bit["tmin"].mean()})
     tab = pd.DataFrame(rader).set_index("aar")
     ok_rr = tab["n_rr"] >= tab["dager"] * 0.9
     ok_t = tab["n_t"] >= tab["dager"] * 0.9
@@ -391,7 +393,10 @@ def beregn(df: pd.DataFrame, fra: tuple[int, int], til: tuple[int, int], *, gren
         "tmid": None if not ok_t[a] or pd.isna(r.tmid) else round(float(r.tmid), 1),
         "tmax": None if not ok_t[a] or pd.isna(r.tmax) else round(float(r.tmax), 1),
         "tmin": None if not ok_t[a] or pd.isna(r.tmin) else round(float(r.tmin), 1),
+        "tmax_snitt": None if not ok_t[a] or pd.isna(r.tmax_snitt) else round(float(r.tmax_snitt), 1),
+        "tmin_snitt": None if not ok_t[a] or pd.isna(r.tmin_snitt) else round(float(r.tmin_snitt), 1),
     } for a, r in tab.iterrows()]
+    i_aar = next((x for x in aar_liste if x["aar"] == aar_naa), {})
 
     nf, nt = normal
     return {
@@ -413,14 +418,97 @@ def beregn(df: pd.DataFrame, fra: tuple[int, int], til: tuple[int, int], *, gren
             "fra_aar": int(tab.index[ok_rr].min()) if ok_rr.any() else None,
         },
         "temperatur": None if not ok_t.any() else {
-            "verdi": next((x["tmid"] for x in aar_liste if x["aar"] == aar_naa), None),
+            "verdi": i_aar.get("tmid"),
             "rang_varm": rang("tmid", ok_t, True), "antall_aar": int(ok_t.sum()),
             "snitt": snitt("tmid", ok_t), "normal": snitt("tmid", ok_t, nf, nt),
+            # Snitt av døgnenes maks/min, og årets høyeste/laveste i perioden.
+            "maks_snitt": i_aar.get("tmax_snitt"), "min_snitt": i_aar.get("tmin_snitt"),
+            "normal_maks": snitt("tmax_snitt", ok_t, nf, nt), "normal_min": snitt("tmin_snitt", ok_t, nf, nt),
+            "hoyeste": i_aar.get("tmax"), "laveste": i_aar.get("tmin"),
             "varmeste": topp("tmid", ok_t, True), "kaldeste": topp("tmid", ok_t, False),
             "varmeste_dag": [[ts.date().isoformat(), float(v)] for ts, v in varmeste_dag.items()],
             "kaldeste_dag": [[ts.date().isoformat(), float(v)] for ts, v in kaldeste_dag.items()],
             "fra_aar": int(tab.index[ok_t].min()),
         },
+    }
+
+
+# ---------------------------------------------------------------------------
+# Prognose: hvordan ender perioden, gitt varselet?
+# ---------------------------------------------------------------------------
+
+_TZ = ZoneInfo("Europe/Oslo")
+
+
+def varsel_dager(timeseries: Optional[list[dict[str, Any]]], tz: ZoneInfo = _TZ,
+                 min_punkter: int = 4) -> dict[date, dict[str, float]]:
+    """Gjør om en YR locationforecast-tidsserie til døgnverdier (lokal tid):
+    snitt av punktene, og laveste/høyeste av punktene og 6-timers min/maks."""
+    punkter: dict[date, list[float]] = {}
+    ekstrem: dict[date, list[float]] = {}
+    for item in timeseries or []:
+        try:
+            t = datetime.fromisoformat(item["time"].replace("Z", "+00:00")).astimezone(tz)
+            temp = float(item["data"]["instant"]["details"]["air_temperature"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        punkter.setdefault(t.date(), []).append(temp)
+        ekstrem.setdefault(t.date(), []).append(temp)
+        detaljer = (item["data"].get("next_6_hours") or {}).get("details") or {}
+        for k in ("air_temperature_max", "air_temperature_min"):
+            if detaljer.get(k) is not None:
+                # 6-timersvinduet kan gå over midnatt; regnes til dagen det starter.
+                ekstrem[t.date()].append(float(detaljer[k]))
+    return {d: {"tmid": float(np.mean(v)), "tmin": min(ekstrem[d]), "tmax": max(ekstrem[d]), "n": len(v)}
+            for d, v in sorted(punkter.items()) if len(v) >= min_punkter}
+
+
+def prognose(df: pd.DataFrame, fra: tuple[int, int], til: tuple[int, int],
+             varsel: dict[date, dict[str, float]], *, normal: tuple[int, int] = (1991, 2020)
+             ) -> Optional[dict[str, Any]]:
+    """Forventet temperatur for hele perioden når den pågår: målte dager, så
+    varselet, og normalen (snitt 1991–2020 for datoen) for dager varselet ikke
+    rekker til. Resultatet rangeres mot hele perioden i alle tidligere år."""
+    naa = beregn(df, fra, til)
+    if not naa["periode"]["pagaar"] or naa["temperatur"] is None:
+        return None
+    siste = df.index.max().date()
+    slutt = _gyldig(naa["i_aar"], *til)
+    t = df.loc[(df.index.year >= normal[0]) & (df.index.year <= normal[1]), ["tmid", "tmin", "tmax"]]
+    klima = t.groupby([t.index.month, t.index.day]).mean()
+
+    dager, rader = [], []
+    d = siste + timedelta(days=1)
+    while d <= slutt:
+        v = varsel.get(d)
+        kilde = "varsel"
+        if v is None:
+            kilde = "normal"
+            k = klima.loc[(d.month, d.day)] if (d.month, d.day) in klima.index else None
+            if k is None or k.isna().any():
+                return None
+            v = {"tmid": float(k.tmid), "tmin": float(k.tmin), "tmax": float(k.tmax)}
+        rader.append({"dato": pd.Timestamp(d), "tmid": v["tmid"], "tmin": v["tmin"], "tmax": v["tmax"]})
+        dager.append({"dato": d.isoformat(), "kilde": kilde,
+                      **{k: round(float(v[k]), 1) for k in ("tmid", "tmin", "tmax")}})
+        d += timedelta(days=1)
+    if not rader:
+        return None
+
+    ny = pd.DataFrame(rader).set_index("dato").reindex(columns=df.columns)
+    hel = beregn(pd.concat([df, ny]), fra, til)
+    tt = hel["temperatur"]
+    if tt is None or tt["verdi"] is None:
+        return None
+    return {
+        "til": slutt.isoformat(), "tekst": hel["periode"]["tekst"],
+        "maalt_til": siste.isoformat(),
+        "dager_varsel": sum(1 for x in dager if x["kilde"] == "varsel"),
+        "dager_normal": sum(1 for x in dager if x["kilde"] == "normal"),
+        "dager": dager,
+        "temperatur": {k: tt[k] for k in ("verdi", "rang_varm", "antall_aar", "snitt", "normal", "maks_snitt",
+                                          "min_snitt", "normal_maks", "normal_min", "hoyeste", "laveste",
+                                          "varmeste", "kaldeste")},
     }
 
 
