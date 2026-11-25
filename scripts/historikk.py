@@ -443,62 +443,88 @@ _TZ = ZoneInfo("Europe/Oslo")
 def varsel_dager(timeseries: Optional[list[dict[str, Any]]], tz: ZoneInfo = _TZ,
                  min_punkter: int = 4) -> dict[date, dict[str, float]]:
     """Gjør om en YR locationforecast-tidsserie til døgnverdier (lokal tid):
-    snitt av punktene, og laveste/høyeste av punktene og 6-timers min/maks."""
+    snitt av punktene, laveste/høyeste av punktene og 6-timers min/maks, og
+    sum nedbør. Nedbøren tas fra timeverdiene så langt de finnes, deretter
+    fra 6-timersblokkene, uten å telle samme time to ganger."""
     punkter: dict[date, list[float]] = {}
     ekstrem: dict[date, list[float]] = {}
+    nedbor: dict[date, float] = {}
+    dekket_til: Optional[datetime] = None
+    rader = []
     for item in timeseries or []:
         try:
-            t = datetime.fromisoformat(item["time"].replace("Z", "+00:00")).astimezone(tz)
-            temp = float(item["data"]["instant"]["details"]["air_temperature"])
+            rader.append((datetime.fromisoformat(item["time"].replace("Z", "+00:00")), item["data"]))
+        except (KeyError, TypeError, ValueError, AttributeError):
+            continue
+    for tid, data in sorted(rader, key=lambda r: r[0]):
+        t = tid.astimezone(tz)
+        try:
+            temp = float(data["instant"]["details"]["air_temperature"])
         except (KeyError, TypeError, ValueError):
             continue
         punkter.setdefault(t.date(), []).append(temp)
         ekstrem.setdefault(t.date(), []).append(temp)
-        detaljer = (item["data"].get("next_6_hours") or {}).get("details") or {}
+        seks = (data.get("next_6_hours") or {}).get("details") or {}
         for k in ("air_temperature_max", "air_temperature_min"):
-            if detaljer.get(k) is not None:
+            if seks.get(k) is not None:
                 # 6-timersvinduet kan gå over midnatt; regnes til dagen det starter.
-                ekstrem[t.date()].append(float(detaljer[k]))
-    return {d: {"tmid": float(np.mean(v)), "tmin": min(ekstrem[d]), "tmax": max(ekstrem[d]), "n": len(v)}
+                ekstrem[t.date()].append(float(seks[k]))
+        if dekket_til is None or tid >= dekket_til:
+            en = (data.get("next_1_hours") or {}).get("details") or {}
+            if en.get("precipitation_amount") is not None:
+                nedbor[t.date()] = nedbor.get(t.date(), 0.0) + float(en["precipitation_amount"])
+                dekket_til = tid + timedelta(hours=1)
+            elif seks.get("precipitation_amount") is not None:
+                nedbor[t.date()] = nedbor.get(t.date(), 0.0) + float(seks["precipitation_amount"])
+                dekket_til = tid + timedelta(hours=6)
+    return {d: {"tmid": float(np.mean(v)), "tmin": min(ekstrem[d]), "tmax": max(ekstrem[d]),
+                "rr": round(nedbor.get(d, 0.0), 1), "n": len(v)}
             for d, v in sorted(punkter.items()) if len(v) >= min_punkter}
 
 
 def prognose(df: pd.DataFrame, fra: tuple[int, int], til: tuple[int, int],
-             varsel: dict[date, dict[str, float]], *, normal: tuple[int, int] = (1991, 2020)
-             ) -> Optional[dict[str, Any]]:
-    """Forventet temperatur for hele perioden når den pågår: målte dager, så
-    varselet, og normalen (snitt 1991–2020 for datoen) for dager varselet ikke
-    rekker til. Resultatet rangeres mot hele perioden i alle tidligere år."""
-    naa = beregn(df, fra, til)
-    if not naa["periode"]["pagaar"] or naa["temperatur"] is None:
+             varsel: dict[date, dict[str, float]], *, grense: float = 0.1,
+             normal: tuple[int, int] = (1991, 2020)) -> Optional[dict[str, Any]]:
+    """Forventet nedbør og temperatur for hele perioden når den pågår: målte
+    dager, så varselet, og normalen (snitt 1991–2020 for datoen) for dager
+    varselet ikke rekker til. Resultatet rangeres mot hele perioden i alle
+    tidligere år."""
+    naa = beregn(df, fra, til, grense=grense)
+    if not naa["periode"]["pagaar"]:
         return None
     siste = df.index.max().date()
     slutt = _gyldig(naa["i_aar"], *til)
-    t = df.loc[(df.index.year >= normal[0]) & (df.index.year <= normal[1]), ["tmid", "tmin", "tmax"]]
-    klima = t.groupby([t.index.month, t.index.day]).mean()
+    n = df.loc[(df.index.year >= normal[0]) & (df.index.year <= normal[1]), ["rr", "tmid", "tmin", "tmax"]].copy()
+    n["regndag"] = (n["rr"] >= grense).where(n["rr"].notna())
+    klima = n.groupby([n.index.month, n.index.day]).mean()
 
     dager, rader = [], []
+    sjanse_regndag = 0.0   # forventede regndager blant dagene fylt med normalen
+    normal_regndager = 0   # ... og hvor mange av dem snittet alene ville talt som regndag
     d = siste + timedelta(days=1)
     while d <= slutt:
         v = varsel.get(d)
         kilde = "varsel"
         if v is None:
             kilde = "normal"
-            k = klima.loc[(d.month, d.day)] if (d.month, d.day) in klima.index else None
-            if k is None or k.isna().any():
+            if (d.month, d.day) not in klima.index or pd.isna(klima.loc[(d.month, d.day), "rr"]):
                 return None
-            v = {"tmid": float(k.tmid), "tmin": float(k.tmin), "tmax": float(k.tmax)}
-        rader.append({"dato": pd.Timestamp(d), "tmid": v["tmid"], "tmin": v["tmin"], "tmax": v["tmax"]})
+            k = klima.loc[(d.month, d.day)]
+            v = {c: float(k[c]) for c in ("rr", "tmid", "tmin", "tmax")}
+            sjanse_regndag += float(k["regndag"])
+            normal_regndager += int(v["rr"] >= grense)
+        rader.append({"dato": pd.Timestamp(d), **{c: v.get(c, np.nan) for c in ("rr", "tmid", "tmin", "tmax")}})
         dager.append({"dato": d.isoformat(), "kilde": kilde,
-                      **{k: round(float(v[k]), 1) for k in ("tmid", "tmin", "tmax")}})
+                      **{c: None if v.get(c) is None or pd.isna(v[c]) else round(float(v[c]), 1)
+                         for c in ("rr", "tmid", "tmin", "tmax")}})
         d += timedelta(days=1)
     if not rader:
         return None
 
     ny = pd.DataFrame(rader).set_index("dato").reindex(columns=df.columns)
-    hel = beregn(pd.concat([df, ny]), fra, til)
-    tt = hel["temperatur"]
-    if tt is None or tt["verdi"] is None:
+    hel = beregn(pd.concat([df, ny]), fra, til, grense=grense)
+    nn, tt = hel["nedbor"], hel["temperatur"]
+    if nn["verdi"] is None:
         return None
     return {
         "til": slutt.isoformat(), "tekst": hel["periode"]["tekst"],
@@ -506,9 +532,14 @@ def prognose(df: pd.DataFrame, fra: tuple[int, int], til: tuple[int, int],
         "dager_varsel": sum(1 for x in dager if x["kilde"] == "varsel"),
         "dager_normal": sum(1 for x in dager if x["kilde"] == "normal"),
         "dager": dager,
-        "temperatur": {k: tt[k] for k in ("verdi", "rang_varm", "antall_aar", "snitt", "normal", "maks_snitt",
-                                          "min_snitt", "normal_maks", "normal_min", "hoyeste", "laveste",
-                                          "varmeste", "kaldeste")},
+        "nedbor": {**{k: nn[k] for k in ("verdi", "rang_vaat", "antall_aar", "snitt", "normal",
+                                         "normal_regndager", "vaateste", "torreste")},
+                   # Normaldager teller med sannsynligheten for regndag, ikke snittmengden.
+                   "regndager": int(round(nn["regndager"] - normal_regndager + sjanse_regndag))},
+        "temperatur": None if tt is None or tt["verdi"] is None else {
+            k: tt[k] for k in ("verdi", "rang_varm", "antall_aar", "snitt", "normal", "maks_snitt",
+                               "min_snitt", "normal_maks", "normal_min", "hoyeste", "laveste",
+                               "varmeste", "kaldeste")},
     }
 
 
