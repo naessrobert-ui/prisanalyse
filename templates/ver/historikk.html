@@ -684,7 +684,7 @@ function tegn(){
     $('tall').innerHTML = `${mm(n.verdi)}<span>mm</span>`;
     const avvik = n.normal ? Math.round(100 * n.verdi / n.normal) : null;
     $('setning').innerHTML = n.verdi == null ? 'Mangler data for i år.' :
-      `${n.rang_vaat <= n.antall_aar / 2 ? `Det ${n.rang_vaat === 1 ? '<b>våteste</b>' : `<b>${n.rang_vaat}. våteste</b>`}` : `Det ${n.antall_aar - n.rang_vaat + 1 === 1 ? '<b>tørreste</b>' : `<b>${n.antall_aar - n.rang_vaat + 1}. tørreste</b>`}`} av ${n.antall_aar} år siden ${n.fra_aar}${avvik != null ? `, ${avvik} % av normalen` : ''}.`
+      `${n.rang_vaat <= n.antall_aar / 2 ? `Det ${n.rang_vaat === 1 ? '<b>våteste</b>' : `<b>${n.rang_vaat}. våteste</b>`}` : `Det ${n.antall_aar - n.rang_vaat + 1 === 1 ? '<b>tørreste</b>' : `<b>${n.antall_aar - n.rang_vaat + 1}. tørreste</b>`}`} av ${n.antall_aar} år siden ${n.fra_aar}${avvik != null ? `, ${avvik} % av normalen` : ''}.` + sistTekst(n, true)
       + (p.pagaar ? ` <span class="muted">Sammenlignet med de samme ${dagerTekst(p)} hvert år.</span>` : '');
     $('kpis').innerHTML = kpi('Snitt alle år', `${mm(n.snitt)} mm`) + kpi('Normal 1991–2020', `${mm(n.normal)} mm`)
       + kpi(`Regndager (≥ ${fmt(p.grense, p.grense < 1 ? 1 : 0)} mm)`, n.regndager ?? '–', `normalt ${fmt(n.normal_regndager, 0)}`)
@@ -693,7 +693,7 @@ function tegn(){
     $('tall').innerHTML = `${fmt(t.verdi)}<span>°</span>`;
     const avv = t.verdi != null && t.normal != null ? t.verdi - t.normal : null;
     $('setning').innerHTML = t.verdi == null ? 'Mangler temperatur for i år.' :
-      `Snittemperatur. ${t.rang_varm <= t.antall_aar / 2 ? `Den ${t.rang_varm === 1 ? '<b>varmeste</b>' : `<b>${t.rang_varm}. varmeste</b>`}` : `Den ${t.antall_aar - t.rang_varm + 1 === 1 ? '<b>kaldeste</b>' : `<b>${t.antall_aar - t.rang_varm + 1}. kaldeste</b>`}`} av ${t.antall_aar} år siden ${t.fra_aar}${avv != null ? `, ${avv >= 0 ? '+' : ''}${fmt(avv)}° mot normalen` : ''}.`;
+      `Snittemperatur. ${t.rang_varm <= t.antall_aar / 2 ? `Den ${t.rang_varm === 1 ? '<b>varmeste</b>' : `<b>${t.rang_varm}. varmeste</b>`}` : `Den ${t.antall_aar - t.rang_varm + 1 === 1 ? '<b>kaldeste</b>' : `<b>${t.antall_aar - t.rang_varm + 1}. kaldeste</b>`}`} av ${t.antall_aar} år siden ${t.fra_aar}${avv != null ? `, ${avv >= 0 ? '+' : ''}${fmt(avv)}° mot normalen` : ''}.` + sistTekst(t, false);
     $('kpis').innerHTML = kpi('Snitt alle år', `${fmt(t.snitt)}°`) + kpi('Normal 1991–2020', `${fmt(t.normal)}°`)
       + kpi('Snitt maks / min', `${fmt(t.maks_snitt)}° / ${fmt(t.min_snitt)}°`, `normalt ${fmt(t.normal_maks)}° / ${fmt(t.normal_min)}°`)
       + kpi(`Høyeste / laveste ${R.i_aar}`, `${fmt(t.hoyeste)}° / ${fmt(t.laveste)}°`)
@@ -711,6 +711,15 @@ const rangVaatTekst = (rang, antall) => rang <= antall / 2
   ? `Det ${rang === 1 ? '<b>våteste</b>' : `<b>${rang}. våteste</b>`}`
   : `Det ${antall - rang + 1 === 1 ? '<b>tørreste</b>' : `<b>${antall - rang + 1}. tørreste</b>`}`;
 const dagNavn = iso => { const x = new Date(iso + 'T12:00:00Z'); return `${x.getUTCDate()}. ${MAAN[x.getUTCMonth()]}`; };
+// "Sist det var kaldere: 2010 (1,0°)." Kald/tørr halvdel viser sist kaldere/tørrere, ellers varmere/våtere.
+function sistTekst(x, rr){
+  if (!x || x.verdi == null) return '';
+  const rang = rr ? x.rang_vaat : x.rang_varm, lav = rang > x.antall_aar / 2;
+  const s = rr ? (lav ? x.sist_torrere : x.sist_vaatere) : (lav ? x.sist_kaldere : x.sist_varmere);
+  const ord = rr ? (lav ? 'tørrere' : 'våtere') : (lav ? 'kaldere' : 'varmere');
+  if (!s) return '';  // da er i år selv det kaldeste/varmeste, og det står allerede i setningen
+  return ` Sist det var ${ord}: <b>${s[0]}</b> (${rr ? `${mm(s[1])} mm` : `${fmt(s[1])}°`}).`;
+}
 function tegnPrognose(){
   const P = R.prognose, rr = V === 'rr', x = P && (rr ? P.nedbor : P.temperatur);
   const vis = !!(x && x.verdi != null);
@@ -721,7 +730,7 @@ function tegnPrognose(){
   if (rr){
     const pst = x.normal ? Math.round(100 * x.verdi / x.normal) : null;
     $('progtall').innerHTML = `${mm(x.verdi)}<span>mm</span>`;
-    $('progsetning').innerHTML = `Forventet nedbør for ${P.tekst}. ${rangVaatTekst(x.rang_vaat, x.antall_aar)} av ${x.antall_aar} år${pst != null ? `, ${pst} % av normalen` : ''}.` + slutt;
+    $('progsetning').innerHTML = `Forventet nedbør for ${P.tekst}. ${rangVaatTekst(x.rang_vaat, x.antall_aar)} av ${x.antall_aar} år${pst != null ? `, ${pst} % av normalen` : ''}.` + sistTekst(x, true) + slutt;
     $('progkpis').innerHTML = kpi('Normal 1991–2020', `${mm(x.normal)} mm`)
       + kpi(`Regndager (≥ ${fmt(R.periode.grense, R.periode.grense < 1 ? 1 : 0)} mm)`, x.regndager ?? '–', `normalt ${fmt(x.normal_regndager, 0)}`)
       + kpi('Våteste år', x.vaateste.length ? `${mm(x.vaateste[0][1])} mm` : '–', x.vaateste.length ? x.vaateste[0][0] : '')
@@ -729,7 +738,7 @@ function tegnPrognose(){
   } else {
     const avv = x.normal != null ? x.verdi - x.normal : null;
     $('progtall').innerHTML = `${fmt(x.verdi)}<span>°</span>`;
-    $('progsetning').innerHTML = `Forventet snittemperatur for ${P.tekst}. ${rangTekst(x.rang_varm, x.antall_aar)} av ${x.antall_aar} år${avv != null ? `, ${avv >= 0 ? '+' : ''}${fmt(avv)}° mot normalen` : ''}.` + slutt;
+    $('progsetning').innerHTML = `Forventet snittemperatur for ${P.tekst}. ${rangTekst(x.rang_varm, x.antall_aar)} av ${x.antall_aar} år${avv != null ? `, ${avv >= 0 ? '+' : ''}${fmt(avv)}° mot normalen` : ''}.` + sistTekst(x, false) + slutt;
     $('progkpis').innerHTML = kpi('Normal 1991–2020', `${fmt(x.normal)}°`)
       + kpi('Snitt maks / min', `${fmt(x.maks_snitt)}° / ${fmt(x.min_snitt)}°`, `normalt ${fmt(x.normal_maks)}° / ${fmt(x.normal_min)}°`)
       + kpi('Høyeste / laveste', `${fmt(x.hoyeste)}° / ${fmt(x.laveste)}°`)

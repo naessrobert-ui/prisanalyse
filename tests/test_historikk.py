@@ -213,3 +213,21 @@ def test_prognose_nedbor_med_varsel_og_normal():
     assert [x["rr"] for x in p["dager"]] == [10.0, 10.0, 10.0, 0.0, 1.0, 0.0, 1.0, 0.0]
     assert n["rang_vaat"] == 1 and n["normal"] == 15.0  # andre år: 15 dager à 1 mm
     assert p["temperatur"]["verdi"] is not None
+
+
+def test_sist_kaldere_og_varmere():
+    df = _df()
+    df.loc["2010-11-01":"2010-11-22", "tmid"] = 1.0
+    df.loc["2015-11-01":"2015-11-22", "tmid"] = 1.5
+    df.loc["2020-11-01":"2020-11-22", "tmid"] = 9.0
+    df.loc["2026-11-01":"2026-11-22", "tmid"] = 2.0
+    df.loc["2026-11-01":"2026-11-22", "rr"] = 0.5
+    df.loc["2012-11-01":"2012-11-22", "rr"] = 0.2
+    r = h.beregn(df, (11, 1), (11, 30))
+    t, n = r["temperatur"], r["nedbor"]
+    assert t["sist_kaldere"] == [2015, 1.5] and t["sist_varmere"] == [2025, 5.0]
+    assert n["sist_torrere"] == [2012, 4.4] and n["sist_vaatere"] == [2025, 22.0]
+    varsel = {date(2026, 11, d): {"tmid": -10.0, "tmin": -12.0, "tmax": -8.0, "rr": 0.0} for d in range(23, 31)}
+    p = h.prognose(df, (11, 1), (11, 30), varsel)
+    # (22 × 2 + 8 × −10) / 30 = −1,2°: kaldere enn alle år.
+    assert p["temperatur"]["sist_kaldere"] is None and p["temperatur"]["rang_varm"] == p["temperatur"]["antall_aar"]
